@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Dashboard - Tactical Command</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&family=JetBrains+Mono:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* TACTICAL TERMINAL THEME - ULTRA CONTRAST */
+            --bg-color: #000000;
+            --panel-bg: #080808;
+            --panel-header-bg: #0c0c0c;
+            --text-main: #ffffff;
+            --text-muted: #666666;
+            --text-muted2: #999999;
+            
+            /* NEON ACCENTS */
+            --accent-red: #ff2a00;
+            --accent-red-dim: rgba(255, 42, 0, 0.08);
+            --accent-red-glow: rgba(255, 42, 0, 0.35);
+            
+            --alert-orange: #ff8c00;
+            --ok-green: #00e676;
+            --ff-blue: #2979ff;
+            
+            /* BORDERS */
+            --border-color: #222222;
+            --border-light: #3a3a3a;
+            --input-bg: #030303;
+            
+            /* Cursor */
+            --tactical-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M16 2L16 30M2 16L30 16' stroke='%23ff2a00' stroke-width='2' opacity='0.7'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23ff2a00'/%3E%3C/svg%3E") 16 16, crosshair;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; cursor: var(--tactical-cursor) !important; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Barlow Semi Condensed', sans-serif;
+            font-weight: 500;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ===== MAIN DASHBOARD CONTAINER ===== */
+        #dashboard-container {
+            width: 1400px;
+            height: 800px;
+            position: relative;
+            transform-origin: center;
+            transform: scale(min(calc(100vw / 1420), calc(100vh / 820)));
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* ===== PANELS ===== */
+        .panel {
+            height: 800px;
+            width: 685px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        /* ===== CENTER HOSPITAL BUTTON ===== */
+        #hospital-btn-wrapper {
+            position: absolute;
+            bottom: 0px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 260px;
+            height: 120px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            pointer-events: none;
+        }
+
+        #hospital-btn {
+            pointer-events: auto;
+            appearance: none;
+            background: var(--accent-red);
+            border: none;
+            width: 260px;
+            height: 120px;
+            border-radius: 40px 40px 0 0;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 30px;
+            transition: all 0.1s;
+            box-shadow: 0 0 30px var(--accent-red-glow);
+        }
+
+        #hospital-btn:hover { background: #ff401a; box-shadow: 0 0 50px rgba(255,42,0,0.6); }
+        #hospital-btn:active { transform: translateY(4px); }
+
+        .h-btn-icon { width: 32px; height: 32px; margin-bottom: 4px; stroke: #000; stroke-width: 2.5px; }
+        .h-btn-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: #000;
+            text-transform: uppercase;
+        }
+
+        /* ===== TABS & HEADERS ===== */
+        .tab-bar {
+            display: flex;
+            background: var(--panel-header-bg);
+            border-bottom: 2px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 16px 4px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border-right: 1px solid var(--border-color);
+            transition: all 0.2s;
+            font-family: 'JetBrains Mono', monospace;
+            position: relative;
+        }
+        .tab:last-child { border-right: none; }
+        .tab:hover { color: var(--text-main); background: #0c0c0c; }
+        .tab.active { color: var(--accent-red); background: var(--bg-color); }
+        .tab.active::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-red);
+        }
+
+        .panel-header {
+            padding: 14px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            background: var(--panel-header-bg);
+        }
+        
+        .panel-header-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 5px;
+            color: var(--text-muted2);
+            text-transform: uppercase;
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--ok-green);
+            box-shadow: 0 0 10px var(--ok-green);
+            animation: blink 2s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+        /* ===== PATIENT STRIP ===== */
+        .patient-strip {
+            padding: 20px 24px;
+            background: var(--panel-bg);
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-shrink: 0;
+        }
+
+        .patient-avatar {
+            width: 52px; height: 52px;
+            border-radius: 12px;
+            background: transparent;
+            border: 2px solid var(--ff-blue);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: inset 0 0 10px rgba(41, 121, 255, 0.2);
+        }
+        .patient-avatar-svg { width: 24px; height: 24px; fill: none; stroke: var(--ff-blue); stroke-width: 2; }
+        
+        .patient-info { display: flex; flex-direction: column; gap: 2px; }
+        .patient-name { font-size: 32px; font-weight: 900; letter-spacing: 1px; line-height: 1; text-transform: uppercase; }
+        .patient-meta { font-size: 12px; color: var(--text-muted2); font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 1px;}
+        
+        .patient-tags { margin-left: auto; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+        .tag {
+            padding: 4px 10px; border-radius: 4px;
+            font-size: 10px; font-weight: 900;
+            letter-spacing: 2px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;
+        }
+        .tag-red { background: rgba(255,42,0,0.1); color: var(--accent-red); border: 1px solid var(--accent-red); }
+        .tag-orange { background: rgba(255,140,0,0.1); color: var(--alert-orange); border: 1px solid var(--alert-orange); }
+
+        .panel-body {
+            flex: 1;
+            padding: 24px;
+            overflow: hidden;
+        }
+
+        .tab-content, .decision-content { display: none; height: 100%; flex-direction: column;}
+        .tab-content.active, .decision-content.active { display: flex; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            margin-top: 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+        .section-label:first-child { margin-top: 0; }
+        .accent-label { color: var(--accent-red); }
+        .accent-label::after { background: rgba(255,42,0,0.2); }
+
+        /* ===== FORMS ===== */
+        .field-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start; }
+        .field-group { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        
+        .field-label { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; }
+        .field-input {
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 14px;
+            font-weight: 700;
+            width: 100%;
+            outline: none;
+            transition: all 0.1s;
+        }
+        .field-input:focus { border-color: var(--accent-red); box-shadow: inset 0 0 5px rgba(255,42,0,0.2); }
+        select.field-input option { background: var(--panel-bg); }
+        textarea.field-input { resize: none; height: 60px; line-height: 1.4; font-family: 'Barlow Semi Condensed', sans-serif;}
+
+        /* ===== VOICE DICTATION PREMIUM BUTTON ===== */
+        .mic-container-top { margin-bottom: 16px; }
+        .mic-btn-premium {
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            background: #050505;
+            border: 1px solid var(--accent-red);
+            border-radius: 8px;
+            padding: 14px;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            width: 100%;
+            box-shadow: inset 0 0 10px rgba(255,42,0,0.1);
+        }
+        .mic-btn-premium:hover { background: rgba(255,42,0,0.05); }
+        .mic-btn-premium.recording {
+            border-color: var(--ok-green); background: rgba(0, 230, 118, 0.05); color: var(--ok-green);
+        }
+        .mic-icon-svg { width: 18px; height: 18px; fill: var(--accent-red); }
+        .mic-btn-premium.recording .mic-icon-svg { fill: var(--ok-green); animation: blink 1s infinite; }
+
+        /* ===== VITALS GRID ===== */
+        .vitals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .vital-card {
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            padding: 16px;
+            border-radius: 8px;
+            position: relative;
+            display: flex; flex-direction: column; align-items: flex-start;
+        }
+        .vital-card.alert-card { border-color: var(--accent-red); background: rgba(255,42,0,0.03); }
+        
+        .vital-label { font-size: 10px; font-weight: 900; letter-spacing: 2px; color: var(--text-muted2); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; }
+        
+        .vital-value { 
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 42px; 
+            font-weight: 900; 
+            line-height: 1; 
+            margin-top: 6px;
+            color: var(--text-main);
+        }
+        .vital-card.alert-card .vital-value { color: var(--accent-red); text-shadow: 0 0 10px rgba(255,42,0,0.4); }
+        
+        .vital-unit { font-size: 10px; font-weight: 800; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; margin-top: 2px;}
+        .vital-status { position: absolute; top: 12px; right: 12px; width: 8px; height: 8px; border-radius: 50%; } 
+        .vital-status.red { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+        .vital-status.green { background: var(--ok-green); box-shadow: 0 0 8px var(--ok-green); }
+
+        /* ===== RIGHT PANEL - PATHOLOGY TABS ===== */
+        .pathology-selector {
+            padding: 12px 24px;
+            border-bottom: 2px solid var(--border-color);
+            background: var(--panel-header-bg);
+            display: flex; gap: 8px; flex-shrink: 0;
+        }
+        .patho-btn {
+            flex: 1;
+            padding: 10px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border-light);
+            background: #000;
+            color: var(--text-muted2);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            transition: all 0.1s;
+            text-transform: uppercase;
+        }
+        .patho-btn:hover { border-color: var(--text-muted); color: var(--text-main); }
+        .patho-btn.active { border-color: var(--accent-red); color: var(--accent-red); background: rgba(255,42,0,0.05); }
+
+        /* ===== PRIORITY ALERT ===== */
+        .priority-alert {
+            border: 1px solid var(--accent-red);
+            background: rgba(255,42,0,0.05);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex; flex-direction: column; gap: 4px;
+            flex-shrink: 0;
+        }
+        .priority-alert-label { font-size: 11px; font-weight: 900; letter-spacing: 4px; color: var(--accent-red); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+        .priority-alert-text { font-size: 22px; font-weight: 900; line-height: 1.1; text-transform: uppercase; color: #fff;}
+
+        /* ========================================================================= */
+        /* HORIZONTAL STEPPER & ACTIVE STEP DISPLAY (NEW)                            */
+        /* ========================================================================= */
+
+        .stepper-track {
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            flex-shrink: 0;
+        }
+
+        .step-item {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            position: relative; z-index: 2; width: 70px;
+        }
+        .step-box {
+            width: 36px; height: 36px; border-radius: 6px;
+            background: #000; border: 2px solid var(--border-light);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 900; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.2s;
+        }
+        .step-lbl {
+            font-size: 10px; font-weight: 900; letter-spacing: 1px; color: var(--text-muted);
+            text-align: center; text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .step-divider {
+            flex: 1; height: 2px; background: var(--border-light);
+            margin: 0 4px; position: relative; top: -10px;
+        }
+
+        /* Active State */
+        .step-item.active .step-box {
+            background: var(--accent-red); border-color: var(--accent-red);
+            color: #000; box-shadow: 0 0 15px rgba(255,42,0,0.5);
+        }
+        .step-item.active .step-lbl { color: var(--accent-red); }
+        
+        /* Done State */
+        .step-item.done .step-box {
+            border-color: var(--ok-green); color: var(--ok-green);
+        }
+        .step-item.done .step-lbl { color: var(--text-muted2); }
+
+
+        /* Active Display Panel (Huge Current Step) */
+        .step-display {
+            display: none; 
+            flex-direction: column;
+            flex: 1;
+        }
+        .step-display.active { display: flex; animation: fadeIn 0.2s ease; }
+        
+        .step-display-card {
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 32px;
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .step-display-card.urgent {
+            border-color: var(--accent-red);
+            background: var(--accent-red-dim);
+            box-shadow: inset 0 0 20px rgba(255,42,0,0.05);
+        }
+
+        .step-display-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 34px; font-weight: 900; color: #fff;
+            text-transform: uppercase; line-height: 1.1; margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+        .step-display-title.urgent { color: var(--accent-red); }
+        
+        .step-display-sub {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px; font-weight: 900; color: var(--alert-orange);
+            letter-spacing: 2px; text-transform: uppercase;
+            display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+        }
+        
+        .step-display-desc {
+            font-size: 18px; color: var(--text-main); line-height: 1.4;
+            font-weight: 600;
+        }
+
+        .step-action-btn {
+            margin-top: auto; /* pushes button to bottom */
+            width: 100%;
+            background: #000; border: 1px solid var(--ok-green);
+            color: var(--ok-green); padding: 18px; border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px; font-weight: 900; letter-spacing: 4px;
+            text-transform: uppercase; transition: all 0.2s;
+        }
+        .step-action-btn:hover { background: rgba(0,230,118,0.1); box-shadow: 0 0 15px rgba(0,230,118,0.2); }
+
+        /* ===== MICRO-VISUELS ===== */
+        .micro-visual-container {
+            margin-top: 24px;
+            background: #000;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .rhythm-svg { width: 100%; height: 50px; display: block; }
+        #ecg-line { stroke-dasharray: 800; stroke-dashoffset: 800; animation: draw-ecg 2.5s linear infinite; }
+        @keyframes draw-ecg { to { stroke-dashoffset: 0; } }
+
+        /* CHECKBOXES */
+        .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .check-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; background: var(--input-bg);
+            border: 1px solid var(--border-light); 
+            border-radius: 6px; 
+        }
+        .check-item:hover { border-color: var(--text-muted); }
+        .check-item input[type=checkbox] { accent-color: var(--accent-red); width: 16px; height: 16px; border-radius: 3px;}
+        .check-item label { font-size: 13px; font-weight: 700; color: var(--text-muted); width: 100%; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;}
+        .check-item.checked { border-color: var(--text-muted2); }
+        .check-item.checked label { color: var(--text-main); }
+    </style>
+</head>
+<body>
+
+<div id="dashboard-container">
+
+    <!-- ===================== PANEL LEFT : PATIENT RECORD ===================== -->
+    <div id="left-panel" class="panel" style="background-color: var(--panel-bg);">
+        <div class="tab-bar">
+            <div class="tab active" onclick="switchTab('identite', this)">IDENTITY</div>
+            <div class="tab" onclick="switchTab('bilan', this)">VITALS</div>
+            <div class="tab" onclick="switchTab('atcd', this)">HISTORY</div>
+            <div class="tab" onclick="switchTab('medicaments', this)">MEDS</div>
+        </div>
+
+        <div class="patient-strip">
+            <div class="patient-avatar">
+                <svg class="patient-avatar-svg" viewBox="0 0 24 24">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                </svg>
+            </div>
+            <div class="patient-info">
+                <div class="patient-name" id="patient-name-display">MARTIN Thomas</div>
+                <div class="patient-meta">68 Y/O &nbsp;·&nbsp; MALE &nbsp;·&nbsp; <span id="dob-display">1957-03-14</span></div>
+            </div>
+            <div class="patient-tags">
+                <div class="tag tag-red">URGENT</div>
+                <div class="tag tag-orange">EMS ALERT</div>
+            </div>
+        </div>
+
+        <div class="panel-header">
+            <span class="panel-header-label">INCIDENT RECORD #ITV-2026-892</span>
+            <div class="status-dot"></div>
+        </div>
+
+        <div class="panel-body">
+            
+            <div class="mic-container-top">
+                <button class="mic-btn-premium" onclick="toggleMicPremium(this)">
+                    <svg class="mic-icon-svg" viewBox="0 0 24 24">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.2 6 6.7V21h2v-3.3c3.28-.5 6-3.28 6-6.7h-1.7z"/>
+                    </svg>
+                    <span id="mic-premium-text">CONTINUOUS VOICE DICTATION</span>
+                </button>
+            </div>
+
+            <!-- TAB: IDENTITY -->
+            <div class="tab-content active" id="tab-identite">
+                <div class="section-label">PATIENT DATA</div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <span class="field-label">LAST NAME</span>
+                        <input class="field-input" type="text" value="MARTIN" oninput="updatePatient()">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">FIRST NAME</span>
+                        <input class="field-input" type="text" value="Thomas" oninput="updatePatient()">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <span class="field-label">DOB</span>
+                        <input class="field-input" type="date" value="1957-03-14" oninput="updatePatient()">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">SEX</span>
+                        <select class="field-input">
+                            <option value="M" selected>M</option>
+                            <option value="F">F</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section-label">LOCATION & DISPATCH</div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <span class="field-label">ADDRESS / COORD</span>
+                        <input class="field-input" type="text" value="Avenue de la République, Sector 4">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <span class="field-label">NATURE</span>
+                        <select class="field-input">
+                            <option selected>SCA / MALAISE</option>
+                            <option>TRAUMA</option>
+                            <option>BURN</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">TIME</span>
+                        <input class="field-input" type="time" value="13:47">
+                    </div>
+                </div>
+
+                <div class="section-label">CLINICAL REMARKS</div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <textarea class="field-input">Conscious, prostrated. Profuse sweating. Left arm pain radiation. No focal neuro deficits.</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: VITALS -->
+            <div class="tab-content" id="tab-bilan">
+                <div class="section-label accent-label">VITALS SNAPSHOT — 13:51</div>
+                
+                <div class="vitals-grid">
+                    <div class="vital-card alert-card">
+                        <div class="vital-status red"></div>
+                        <div class="vital-label">HEART RATE</div>
+                        <div class="vital-value">118</div>
+                        <div class="vital-unit">BPM</div>
+                    </div>
+                    
+                    <div class="vital-card alert-card" style="border-color:var(--alert-orange); background:rgba(255,140,0,0.03);">
+                        <div class="vital-status" style="background:var(--alert-orange); box-shadow:0 0 10px var(--alert-orange);"></div>
+                        <div class="vital-label">SYSTOLIC BP</div>
+                        <div class="vital-value" style="color:var(--alert-orange); text-shadow: 0 0 10px rgba(255,140,0,0.4);">88</div>
+                        <div class="vital-unit">MMHG</div>
+                    </div>
+                    
+                    <div class="vital-card">
+                        <div class="vital-status green"></div>
+                        <div class="vital-label">O2 SAT</div>
+                        <div class="vital-value">97</div>
+                        <div class="vital-unit">PERCENT</div>
+                    </div>
+                </div>
+                
+                <div class="section-label">TELEMETRY (LEAD II)</div>
+                <div style="background: #000; padding: 8px; border: 1px solid var(--border-light); margin-bottom: 16px; border-radius: 8px;">
+                    <svg class="rhythm-svg" viewBox="0 0 550 55" xmlns="http://www.w3.org/2000/svg">
+                        <g stroke="#111" stroke-width="1" fill="none">
+                            <line x1="0" y1="10" x2="550" y2="10"/>
+                            <line x1="0" y1="20" x2="550" y2="20"/>
+                            <line x1="0" y1="30" x2="550" y2="30"/>
+                            <line x1="0" y1="40" x2="550" y2="40"/>
+                        </g>
+                        <polyline id="ecg-line" points="0,30 20,30 25,30 30,28 35,30 40,30 50,30 55,8 60,50 65,30 70,22 75,30 80,30 100,30 105,30 110,28 115,30 120,30 130,30 135,8 140,50 145,30 150,22 155,30 160,30 180,30 185,30 190,28 195,30 200,30 210,30 215,8 220,50 225,30 230,22 235,30 240,30 260,30 265,30 270,28 275,30 280,30 290,30 295,8 300,50 305,30 310,22 315,30 320,30 340,30 345,30 350,28 355,30 360,30 370,30 375,8 380,50 385,30 390,22 395,30 400,30 420,30 425,30 430,28 435,30 440,30 450,30 455,8 460,50 465,30 470,22 475,30 480,30 500,30 505,30 510,28 515,30 520,30 530,30 535,8 540,50 545,30 550,30" fill="none" stroke="var(--ok-green)" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                <div class="field-row">
+                    <div class="field-group">
+                        <span class="field-label">PAIN SCALE (VAS)</span>
+                        <input class="field-input" type="range" min="0" max="10" value="7" style="padding:0; border:none; background:transparent;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: HISTORY -->
+            <div class="tab-content" id="tab-atcd">
+                <div class="section-label">MEDICAL HISTORY</div>
+                <div class="check-grid">
+                    <div class="check-item checked"><input type="checkbox" checked id="c1"><label for="c1">HEART DISEASE</label></div>
+                    <div class="check-item"><input type="checkbox" id="c2"><label for="c2">TYPE 2 DIABETES</label></div>
+                    <div class="check-item checked"><input type="checkbox" checked id="c3"><label for="c3">SEVERE HTN</label></div>
+                    <div class="check-item"><input type="checkbox" id="c4"><label for="c4">ASTHMA / COPD</label></div>
+                    <div class="check-item"><input type="checkbox" id="c5"><label for="c5">RENAL FAILURE</label></div>
+                    <div class="check-item"><input type="checkbox" id="c6"><label for="c6">STROKE / TIA</label></div>
+                </div>
+            </div>
+
+            <!-- TAB: MEDS -->
+            <div class="tab-content" id="tab-medicaments">
+                <div class="section-label">CURRENT MEDICATIONS</div>
+                <div class="field-row">
+                    <div class="field-group"><input class="field-input" type="text" value="KARDEGIC 75MG"></div>
+                    <div class="field-group" style="max-width:100px;"><input class="field-input" type="text" value="1×/DAY"></div>
+                </div>
+                <div class="field-row">
+                    <div class="field-group"><input class="field-input" type="text" value="BISOPROLOL 5MG"></div>
+                    <div class="field-group" style="max-width:100px;"><input class="field-input" type="text" value="1×/DAY"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== PANEL RIGHT : DECISION SUPPORT ===================== -->
+    <div id="right-panel" class="panel" style="background-color: #ff2a0017;">
+        <div class="decision-header panel-header">
+            <span class="panel-header-label">OPERATIONAL PROTOCOL</span>
+            <div class="status-dot" style="background:var(--text-muted); box-shadow:none;"></div>
+        </div>
+
+        <div class="pathology-selector">
+            <button class="patho-btn active" onclick="switchPathology('sca', this)">ACS (CARDIAC)</button>
+            <button class="patho-btn" onclick="switchPathology('trauma', this)">TRAUMA</button>
+            <button class="patho-btn" onclick="switchPathology('brulures', this)">BURNS</button>
+        </div>
+
+        <div class="panel-body" style="display: flex; flex-direction: column;">
+            
+            <!-- ===================== PATHOLOGY: ACS ===================== -->
+            <div class="decision-content active" id="decision-sca">
+                <div class="priority-alert">
+                    <div class="priority-alert-label">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        CRITICAL THREAT
+                    </div>
+                    <div class="priority-alert-text">SUSPECTED STEMI</div>
+                </div>
+
+                <!-- HORIZONTAL STEPPER -->
+                <div class="stepper-track">
+                    <div class="step-item done" id="ind-sca-1" onclick="selectStep('sca', 1)">
+                        <div class="step-box">✓</div><div class="step-lbl">ECG</div>
+                    </div>
+                    <div class="step-divider"></div>
+                    <div class="step-item done" id="ind-sca-2" onclick="selectStep('sca', 2)">
+                        <div class="step-box">✓</div><div class="step-lbl">ACCESS</div>
+                    </div>
+                    <div class="step-divider"></div>
+                    <div class="step-item active" id="ind-sca-3" onclick="selectStep('sca', 3)">
+                        <div class="step-box">3</div><div class="step-lbl">ASPIRIN</div>
+                    </div>
+                    <div class="step-divider"></div>
+                    <div class="step-item" id="ind-sca-4" onclick="selectStep('sca', 4)">
+                        <div class="step-box">4</div><div class="step-lbl">TRANSFER</div>
+                    </div>
+                </div>
+
+                <!-- LARGE ACTIVE STEP DISPLAYS -->
+                <!-- SCA Step 1 -->
+                <div class="step-display" id="disp-sca-1">
+                    <div class="step-display-card">
+                        <div class="step-display-title">12-LEAD ECG TX</div>
+                        <div class="step-display-sub" style="color:var(--text-muted2);">CARDIOLOGIST VALIDATION REQUIRED</div>
+                        <div class="step-display-desc">Transmit 12-lead ECG telemetry immediately to the dispatch center for physician interpretation.</div>
+                        <button class="step-action-btn" onclick="markStepDone('sca', 1)">MARK COMPLETED</button>
+                    </div>
+                </div>
+                <!-- SCA Step 2 -->
+                <div class="step-display" id="disp-sca-2">
+                    <div class="step-display-card">
+                        <div class="step-display-title">IV ACCESS & SCOPING</div>
+                        <div class="step-display-sub" style="color:var(--text-muted2);">SECURE 18G PERIPHERAL LINE</div>
+                        <div class="step-display-desc">Establish robust peripheral intravenous access. Connect patient to continuous 3-lead telemetry and SpO2 monitoring.</div>
+                        <button class="step-action-btn" onclick="markStepDone('sca', 2)">MARK COMPLETED</button>
+                    </div>
+                </div>
+                <!-- SCA Step 3 (URGENT/ACTIVE) -->
+                <div class="step-display active" id="disp-sca-3">
+                    <div class="step-display-card urgent">
+                        <div class="step-display-title urgent">ASPIRIN 250MG IV</div>
+                        <div class="step-display-sub">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            RULE OUT ALLERGIES / ULCER
+                        </div>
+                        <div class="step-display-desc">Administer 250mg Aspirin via slow IV push to inhibit platelet aggregation. Essential intervention for suspected STEMI.</div>
+                        
+                        <div class="micro-visual-container">
+                            <svg width="60" height="30" viewBox="0 0 80 40" style="flex-shrink:0;">
+                                <polyline points="0,25 15,25 20,10 24,35 28,25 36,5 55,5 62,25 80,25" fill="none" stroke="var(--accent-red)" stroke-width="3" stroke-linejoin="bevel"/>
+                                <circle cx="45" cy="5" r="4" fill="var(--accent-red)"/>
+                            </svg>
+                            <div style="font-size:12px; font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--text-main); line-height: 1.4;">
+                                ST-ELEVATION CONFIRMED.<br>SLOW PUSH REQUIRED.
+                            </div>
+                        </div>
+
+                        <button class="step-action-btn" onclick="markStepDone('sca', 3)">MARK COMPLETED</button>
+                    </div>
+                </div>
+                <!-- SCA Step 4 -->
+                <div class="step-display" id="disp-sca-4">
+                    <div class="step-display-card">
+                        <div class="step-display-title">CATH LAB TRANSFER</div>
+                        <div class="step-display-sub" style="color:var(--text-muted2);">INITIATE DIRECT ROUTING</div>
+                        <div class="step-display-desc">Bypass standard Emergency Room intake. Notify receiving interventional cardiology unit for immediate primary PCI.</div>
+                        <button class="step-action-btn" onclick="markStepDone('sca', 4)">MARK COMPLETED</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================== PATHOLOGY: TRAUMA ===================== -->
+            <div class="decision-content" id="decision-trauma">
+                <div class="priority-alert" style="border-color:var(--alert-orange); background:rgba(255,140,0,0.05);">
+                    <div class="priority-alert-label" style="color:var(--alert-orange);">SEVERE TRAUMA</div>
+                    <div class="priority-alert-text" style="color:var(--alert-orange);">ABCDE SURVEY</div>
+                </div>
+                
+                <!-- HORIZONTAL STEPPER -->
+                <div class="stepper-track">
+                    <div class="step-item active" id="ind-trauma-1" onclick="selectStep('trauma', 1)">
+                        <div class="step-box" style="border-color:var(--alert-orange); background:var(--alert-orange); color:#000;">1</div><div class="step-lbl" style="color:var(--alert-orange);">BLEEDING</div>
+                    </div>
+                    <div class="step-divider"></div>
+                    <div class="step-item" id="ind-trauma-2" onclick="selectStep('trauma', 2)">
+                        <div class="step-box">2</div><div class="step-lbl">AIRWAY</div>
+                    </div>
+                    <div class="step-divider"></div>
+                    <div class="step-item" id="ind-trauma-3" onclick="selectStep('trauma', 3)">
+                        <div class="step-box">3</div><div class="step-lbl">EXTRACT</div>
+                    </div>
+                </div>
+
+                <!-- LARGE ACTIVE STEP DISPLAYS -->
+                <!-- Trauma Step 1 -->
+                <div class="step-display active" id="disp-trauma-1">
+                    <div class="step-display-card" style="border-color:var(--alert-orange); background:rgba(255,140,0,0.05); box-shadow: inset 0 0 20px rgba(255,140,0,0.05);">
+                        <div class="step-display-title" style="color:var(--alert-orange);">HEMORRHAGE CONTROL</div>
+                        <div class="step-display-sub" style="color:#fff;">APPLY TOURNIQUET IF REQUIRED</div>
+                        <div class="step-display-desc">Identify and immediately halt massive external bleeding. Use pressure dressings or high-placement tourniquets on limbs.</div>
+                        <button class="step-action-btn" onclick="markStepDone('trauma', 1)">MARK COMPLETED</button>
+                    </div>
+                </div>
+                <!-- Trauma Step 2 -->
+                <div class="step-display" id="disp-trauma-2">
+                    <div class="step-display-card">
+                        <div class="step-display-title">AIRWAY & C-SPINE</div>
+                        <div class="step-display-sub" style="color:var(--text-muted2);">STABILIZE CERVICAL SPINE</div>
+                        <div class="step-display-desc">Ensure airway patency while maintaining strict cervical spine immobilization using collar and blocks.</div>
+                        <button class="step-action-btn" onclick="markStepDone('trauma', 2)">MARK COMPLETED</button>
+                    </div>
+                </div>
+                <!-- Trauma Step 3 -->
+                <div class="step-display" id="disp-trauma-3">
+                    <div class="step-display-card">
+                        <div class="step-display-title">RAPID EXTRACTION</div>
+                        <div class="step-display-sub" style="color:var(--text-muted2);">SCOOP & RUN PROTOCOL</div>
+                        <div class="step-display-desc">Minimize on-scene time. Package patient on long spine board and initiate rapid transport to trauma center.</div>
+                        <button class="step-action-btn" onclick="markStepDone('trauma', 3)">MARK COMPLETED</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================== PATHOLOGY: BURNS ===================== -->
+            <div class="decision-content" id="decision-brulures">
+                 <div class="priority-alert" style="border-color:var(--text-muted); background:rgba(255,255,255,0.02);">
+                    <div class="priority-alert-label" style="color:var(--text-muted);">THERMAL BURN</div>
+                    <div class="priority-alert-text">TBSA CALCULATION</div>
+                </div>
+                
+                <!-- HORIZONTAL STEPPER -->
+                <div class="stepper-track">
+                    <div class="step-item active" id="ind-brulures-1" onclick="selectStep('brulures', 1)">
+                        <div class="step-box" style="border-color:var(--ff-blue); background:var(--ff-blue); color:#000;">1</div><div class="step-lbl" style="color:var(--ff-blue);">COOLING</div>
+                    </div>
+                    <div class="step-divider"></div>
+                    <div class="step-item" id="ind-brulures-2" onclick="selectStep('brulures', 2)">
+                        <div class="step-box">2</div><div class="step-lbl">TBSA %</div>
+                    </div>
+                    <div class="step-divider"></div>
+                    <div class="step-item" id="ind-brulures-3" onclick="selectStep('brulures', 3)">
+                        <div class="step-box">3</div><div class="step-lbl">FLUIDS</div>
+                    </div>
+                </div>
+
+                <!-- LARGE ACTIVE STEP DISPLAYS -->
+                <!-- Burns Step 1 -->
+                <div class="step-display active" id="disp-brulures-1">
+                    <div class="step-display-card" style="border-color:var(--ff-blue); background:rgba(41, 121, 255, 0.05); box-shadow: inset 0 0 20px rgba(41, 121, 255, 0.05);">
+                        <div class="step-display-title" style="color:var(--ff-blue);">HYDRO-COOLING</div>
+                        <div class="step-display-sub" style="color:#fff;">IRRIGATE WITH WATER (15-20°C)</div>
+                        <div class="step-display-desc">Continuously irrigate the burn area for a minimum of 20 minutes to halt subdermal thermal damage progression. Prevent hypothermia.</div>
+                        <button class="step-action-btn" onclick="markStepDone('brulures', 1)">MARK COMPLETED</button>
+                    </div>
+                </div>
+                <!-- Burns Step 2 -->
+                <div class="step-display" id="disp-brulures-2">
+                    <div class="step-display-card">
+                        <div class="step-display-title">TBSA CALCULATION</div>
+                        <div class="step-display-sub" style="color:var(--text-muted2);">WALLACE RULE OF NINES</div>
+                        <div class="step-display-desc">Estimate Total Body Surface Area affected by 2nd and 3rd degree burns to guide fluid resuscitation.</div>
+                        <button class="step-action-btn" onclick="markStepDone('brulures', 2)">MARK COMPLETED</button>
+                    </div>
+                </div>
+                <!-- Burns Step 3 -->
+                <div class="step-display" id="disp-brulures-3">
+                    <div class="step-display-card">
+                        <div class="step-display-title">FLUID RESUSCITATION</div>
+                        <div class="step-display-sub" style="color:var(--text-muted2);">PARKLAND FORMULA</div>
+                        <div class="step-display-desc">Initiate Ringer's Lactate infusion via large bore IV based on TBSA calculation. Place sterile, non-adherent dressings.</div>
+                        <button class="step-action-btn" onclick="markStepDone('brulures', 3)">MARK COMPLETED</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== CENTRAL RED BUTTON ===================== -->
+    <div id="hospital-btn-wrapper">
+        <button id="hospital-btn" onclick="toggleCall(this)">
+            <svg class="h-btn-icon" viewBox="0 0 24 24" fill="none" stroke-linecap="square"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.77a19.79 19.79 0 01-3.07-8.67A2 2 0 012 1h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+            <span class="h-btn-label" id="btn-text">HOSPITAL</span>
+        </button>
+    </div>
+
+</div>
+
+<script>
+    function switchTab(tabName, el) {
+        document.querySelectorAll('#left-panel .tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('#left-panel .tab-content').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('tab-' + tabName).classList.add('active');
+    }
+
+    function switchPathology(name, el) {
+        document.querySelectorAll('.patho-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.decision-content').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('decision-' + name).classList.add('active');
+    }
+
+    document.querySelectorAll('.check-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            if(e.target.tagName !== 'INPUT') {
+                const cb = this.querySelector('input');
+                cb.checked = !cb.checked;
+            }
+            this.classList.toggle('checked', this.querySelector('input').checked);
+        });
+    });
+
+    function toggleMicPremium(btn) {
+        btn.classList.toggle('recording');
+        const textSpan = document.getElementById('mic-premium-text');
+        if (btn.classList.contains('recording')) {
+            textSpan.textContent = "STREAMING REPORT...";
+        } else {
+            textSpan.textContent = "CONTINUOUS DICTATION";
+        }
+    }
+
+    // --- NEW STEPPER LOGIC ---
+    function selectStep(patho, stepNum) {
+        // Remove active from all indicators and displays for this patho
+        const container = document.getElementById(`decision-${patho}`);
+        container.querySelectorAll('.step-item').forEach(el => el.classList.remove('active'));
+        container.querySelectorAll('.step-display').forEach(el => el.classList.remove('active'));
+        
+        // Add active to selected
+        const ind = document.getElementById(`ind-${patho}-${stepNum}`);
+        const disp = document.getElementById(`disp-${patho}-${stepNum}`);
+        if(ind && disp) {
+            ind.classList.add('active');
+            disp.classList.add('active');
+        }
+    }
+
+    function markStepDone(patho, stepNum) {
+        const ind = document.getElementById(`ind-${patho}-${stepNum}`);
+        if(ind) {
+            ind.classList.add('done');
+            ind.querySelector('.step-box').textContent = '✓';
+            ind.style.borderColor = 'var(--ok-green)';
+            
+            // Auto advance to next step if exists
+            const nextStep = document.getElementById(`ind-${patho}-${stepNum + 1}`);
+            if(nextStep) {
+                selectStep(patho, stepNum + 1);
+            } else {
+                // If it was the last step, just keep it active visually or show a completion message.
+                // Keeping it active is fine.
+            }
+        }
+    }
+
+    function updatePatient() {
+        const inputs = document.querySelectorAll('#tab-identite .field-input[type=text]');
+        if(inputs.length >= 2) {
+            document.getElementById('patient-name-display').textContent = (inputs[0].value || '') + ' ' + (inputs[1].value || '');
+        }
+    }
+
+    let isCalling = false;
+    function toggleCall(btn) {
+        isCalling = !isCalling;
+        const textSpan = document.getElementById('btn-text');
+        
+        if (isCalling) {
+            btn.style.background = 'var(--ok-green)';
+            btn.style.boxShadow = '0 0 50px rgba(0, 230, 118, 0.4)';
+            textSpan.textContent = 'CONNECTED';
+        } else {
+            btn.style.background = 'var(--accent-red)';
+            btn.style.boxShadow = '0 0 30px var(--accent-red-glow)';
+            textSpan.textContent = 'HOSPITAL';
+        }
+    }
+</script>
+</body>
+</html>

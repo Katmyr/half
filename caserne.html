@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SDIS — Coordination Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --red:        #E8190C;
+    --red-muted:  rgba(232,25,12,0.10);
+    --carbon:     #1A1A1A;
+    --silver:     #B0B4BA;
+    --silver-dim: #7A7F87;
+    --bg:         #F0EDE8;
+    --surface:    #E8E4DF;
+    --surface2:   #DEDAD4;
+    --border:     #C8C3BC;
+    --text:       #1A1A1A;
+    --text-dim:   #6B6560;
+    --green:      #1A8A4A;
+    --font-ui:    'Space Grotesk', sans-serif;
+    --font-mono:  'Space Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-ui); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* TOPBAR */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 48px; background: var(--carbon); flex-shrink: 0; border-bottom: 1px solid #333; }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 26px; height: 26px; background: var(--red); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: #fff; font-weight: 700; }
+  .topbar h1 { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.08em; text-transform: uppercase; }
+  .topbar h1 span { color: var(--red); }
+  .topbar-stats { display: flex; align-items: center; gap: 20px; font-family: var(--font-mono); font-size: 11px; color: var(--silver); letter-spacing: 0.05em; }
+  .topbar-stats .stat { display: flex; align-items: center; gap: 5px; }
+  .topbar-stats .stat .val { color: #fff; font-weight: 700; }
+  .topbar-stats .sep { color: #444; }
+  .topbar-time { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.05em; }
+
+  /* MAIN */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* MAP */
+  .map-area { flex: 1; position: relative; display: flex; flex-direction: column; }
+  #map { flex: 1; background: var(--surface); }
+  .map-legend { position: absolute; bottom: 24px; left: 12px; background: rgba(26,26,26,0.88); border: 1px solid #444; border-radius: 4px; padding: 8px 12px; z-index: 1000; display: flex; flex-direction: column; gap: 5px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 10px; color: var(--silver); letter-spacing: 0.04em; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff; flex-shrink: 0; }
+
+  /* leaflet popup */
+  .leaflet-popup-content-wrapper { background: var(--carbon) !important; color: #fff !important; border-radius: 6px !important; border: 1px solid #444 !important; box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important; min-width: 240px !important; }
+  .leaflet-popup-tip { background: var(--carbon) !important; }
+  .leaflet-popup-content { margin: 12px 14px !important; }
+  .popup-name { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+  .popup-detail { font-family: var(--font-ui); font-size: 11px; color: var(--silver); line-height: 1.5; margin-bottom: 10px; }
+
+  /* popup crew blocks */
+  .popup-crew { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .popup-veh-block { background: rgba(255,255,255,0.05); border: 1px solid #3a3a3a; border-radius: 3px; padding: 6px 8px; }
+  .popup-veh-name { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--silver-dim); margin-bottom: 4px; display: flex; align-items: center; gap: 5px; }
+  .popup-veh-name::before { content:''; width:5px; height:5px; background: var(--silver-dim); border-radius: 1px; flex-shrink:0; }
+  .popup-person { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+  .popup-person-name { font-family: var(--font-mono); font-size: 10px; color: #fff; letter-spacing: 0.02em; }
+  .popup-person-name.lead { color: var(--red); }
+  .popup-call-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; margin-top: 8px;
+    background: rgba(255,255,255,0.07); border: 1px solid #444;
+    border-radius: 3px; padding: 5px 10px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    color: var(--silver); cursor: pointer; letter-spacing: 0.06em;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .popup-call-btn:hover { background: rgba(26,138,74,0.18); border-color: #1A8A4A; color: #1A8A4A; }
+  .popup-call-btn.calling { background: rgba(26,138,74,0.22); border-color: #1A8A4A; color: #1A8A4A; animation: call-pulse 0.9s infinite; }
+  .popup-call-btn.calling::before { content: ''; display: inline-block; width: 6px; height: 6px; background: #1A8A4A; border-radius: 50%; animation: call-dot 0.9s infinite; }
+  @keyframes call-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+  @keyframes call-dot   { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+
+  /* popup divider */
+  .popup-divider { border: none; border-top: 1px solid #333; margin: 8px 0; }
+
+  /* SIDEBAR */
+  .sidebar { width: 320px; flex-shrink: 0; background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+  .sidebar-idle { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; gap: 10px; text-align: center; }
+  .sidebar-idle-icon { font-size: 28px; color: var(--border); }
+  .sidebar-idle-title { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--silver-dim); letter-spacing: 0.06em; text-transform: uppercase; }
+  .sidebar-idle-sub { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+
+  .sidebar-active { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+
+  .sidebar-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; }
+  .loc-badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--red); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+  .loc-badge::before { content: ''; display: inline-block; width: 6px; height: 6px; background: var(--red); border-radius: 50%; }
+  .loc-name { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; }
+  .loc-coords { font-family: var(--font-mono); font-size: 10px; color: var(--silver-dim); margin-top: 3px; letter-spacing: 0.04em; }
+  .sidebar-close { background: none; border: none; cursor: pointer; color: var(--silver-dim); font-size: 16px; padding: 0; line-height: 1; flex-shrink: 0; }
+  .sidebar-close:hover { color: var(--text); }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    margin: 14px 16px 0;
+    border: 1.5px dashed var(--border); border-radius: 4px;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    flex-shrink: 0; position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--red); background: var(--red-muted); }
+  .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { color: var(--silver-dim); font-size: 18px; pointer-events: none; }
+  .upload-label { font-size: 12px; font-weight: 600; color: var(--text-dim); text-align: center; pointer-events: none; }
+  .upload-types { font-family: var(--font-mono); font-size: 10px; color: var(--silver-dim); letter-spacing: 0.05em; pointer-events: none; }
+
+  /* DOCS LIST */
+  .docs-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-top: 12px; }
+  .docs-label { padding: 6px 16px; font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver-dim); border-top: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+  .docs-count { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1px 6px; font-size: 9px; color: var(--text-dim); }
+  .docs-scroll { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .docs-empty { padding: 16px; font-size: 11px; color: var(--text-dim); text-align: center; }
+
+  .doc-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    transition: background 0.12s; position: relative;
+  }
+  .doc-item:hover { background: var(--surface); }
+  .doc-item:last-child { border-bottom: none; }
+  .doc-icon {
+    width: 32px; height: 32px; border-radius: 3px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; font-family: var(--font-mono);
+    letter-spacing: 0;
+  }
+  .doc-icon.pdf  { background: rgba(232,25,12,0.12); color: var(--red); }
+  .doc-icon.img  { background: rgba(0,120,200,0.10); color: #0078C8; }
+  .doc-icon.doc  { background: rgba(0,100,220,0.10); color: #0064DC; }
+  .doc-icon.zip  { background: rgba(100,80,0,0.10); color: #7A6000; }
+  .doc-icon.other{ background: var(--surface2); color: var(--silver-dim); }
+  .doc-meta { flex: 1; min-width: 0; }
+  .doc-name { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc-sub  { font-family: var(--font-mono); font-size: 9px; color: var(--silver-dim); margin-top: 2px; letter-spacing: 0.03em; }
+  .doc-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.12s; }
+  .doc-item:hover .doc-actions { opacity: 1; }
+  .doc-btn { background: none; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; padding: 3px 7px; font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); transition: background 0.1s, color 0.1s; }
+  .doc-btn:hover { background: var(--surface2); color: var(--text); }
+  .doc-btn.del:hover { background: var(--red-muted); color: var(--red); border-color: rgba(232,25,12,0.3); }
+
+  /* thumbnail preview */
+  .doc-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; border: 1px solid var(--border); flex-shrink: 0; }
+
+  /* TABLE SECTION */
+  .table-section { max-height: 320px; border-top: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .table-header-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .section-title { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+  .badge { background: var(--red); color: #fff; font-family: var(--font-mono); font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 6px; min-width: 18px; text-align: center; }
+  .table-scroll { flex: 1; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead th { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver-dim); text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--surface); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; vertical-align: top; }
+  tbody tr:hover { background: var(--surface); cursor: pointer; }
+  tbody tr.selected { background: var(--red-muted); }
+  td { padding: 10px 12px; }
+
+  .status-pill { display: inline-flex; align-items: center; gap: 4px; border-radius: 3px; padding: 2px 7px; font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; white-space: nowrap; }
+  .status-pill.enroute { background: rgba(255,160,0,0.14); color: #B87000; border: 1px solid rgba(255,160,0,0.3); }
+  .status-pill.active  { background: var(--red-muted); color: var(--red); border: 1px solid rgba(232,25,12,0.25); }
+  .status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .enroute .status-dot { background: #F0A000; }
+  .active  .status-dot { background: var(--red); animation: pulse-dot 1.4s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+  .time-val { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text); }
+  .location-val { font-size: 11px; color: var(--text); line-height: 1.4; }
+  .type-val { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text); }
+  .intervention-name { font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--red); letter-spacing: 0.06em; text-transform: uppercase; }
+  .alert-note { margin-top: 4px; font-size: 10px; color: var(--text-dim); display: flex; align-items: flex-start; gap: 4px; }
+  .alert-note::before { content: '△'; font-size: 9px; color: var(--silver-dim); flex-shrink: 0; margin-top: 1px; }
+
+  .crew-vehicle-group { display: flex; flex-direction: column; gap: 5px; }
+  .vehicle-crew-block { display: flex; flex-direction: column; gap: 2px; padding: 5px 7px; background: var(--surface); border: 1px solid var(--border); border-radius: 3px; }
+  .veh-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--carbon); white-space: nowrap; margin-bottom: 2px; display: flex; align-items: center; gap: 4px; }
+  .veh-tag::before { content:''; width:6px; height:6px; background: var(--silver-dim); border-radius: 1px; flex-shrink:0; }
+  .crew-name { font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); letter-spacing: 0.02em; white-space: nowrap; padding-left: 10px; }
+  .crew-name.lead { color: var(--text); font-weight: 700; }
+
+  /* doc badge on row */
+  .row-doc-badge { display: inline-flex; align-items: center; gap: 3px; font-family: var(--font-mono); font-size: 9px; color: var(--green); background: rgba(26,138,74,0.10); border: 1px solid rgba(26,138,74,0.25); border-radius: 3px; padding: 1px 5px; margin-top: 5px; }
+
+  .table-scroll::-webkit-scrollbar { width: 5px; }
+  .table-scroll::-webkit-scrollbar-track { background: transparent; }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .docs-scroll::-webkit-scrollbar { width: 4px; }
+  .docs-scroll::-webkit-scrollbar-track { background: transparent; }
+  .docs-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @keyframes pulse { 0%{box-shadow:0 0 0 3px rgba(232,25,12,0.4)}50%{box-shadow:0 0 0 9px rgba(232,25,12,0)}100%{box-shadow:0 0 0 3px rgba(232,25,12,0.4)} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>SDIS — <span>COORDINATION CENTER</span></h1>
+  </div>
+  <div class="topbar-stats">
+    <div class="stat">△ Active <span class="val">2</span></div>
+    <div class="stat">⏸ On the way <span class="val">2</span></div>
+    <div class="stat">🚒 Vehicles <span class="val">9</span></div>
+    <div class="stat">🧑‍🚒 Firefighters <span class="val">18</span></div>
+    <div class="sep">|</div>
+    <div class="topbar-time" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="map-area">
+    <div id="map"></div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#E8190C;"></div> Active</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#F0A000;"></div> On the way</div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-idle" id="sidebar-idle">
+      <div class="sidebar-idle-icon">◎</div>
+      <div class="sidebar-idle-title">No location selected</div>
+      <div class="sidebar-idle-sub">Click on an incident marker or a table row to attach documents to that intervention.</div>
+    </div>
+
+    <div class="sidebar-active" id="sidebar-active">
+      <div class="sidebar-header">
+        <div>
+          <div class="loc-badge" id="sb-id">INT-00</div>
+          <div class="loc-name" id="sb-name">—</div>
+          <div class="loc-coords" id="sb-coords">—</div>
+        </div>
+        <button class="sidebar-close" onclick="clearSelection()">×</button>
+      </div>
+
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" multiple accept="*/*" onchange="handleFiles(this.files)" />
+        <div class="upload-icon">↑</div>
+        <div class="upload-label">Drag & drop or click to add documents</div>
+        <div class="upload-types">PDF, IMAGES, WORD, ZIP…</div>
+      </div>
+
+      <div class="docs-section">
+        <div class="docs-label">
+          Attached documents
+          <span class="docs-count" id="docs-count">0</span>
+        </div>
+        <div class="docs-scroll" id="docs-list">
+          <div class="docs-empty" id="docs-empty">No documents yet for this intervention.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="table-section">
+  <div class="table-header-bar">
+    <span class="section-title">Ongoing Interventions</span>
+    <span class="badge">4</span>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Start</th>
+          <th>Location</th>
+          <th>Type</th>
+          <th>Intervention</th>
+          <th>Vehicles & Crew</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+
+        <tr data-id="INT-01" onclick="selectRow(this)">
+          <td><span class="status-pill enroute"><span class="status-dot"></span>On the way</span></td>
+          <td><span class="time-val">06:42</span></td>
+          <td>
+            <div class="location-val">Calanque de Sormiou<br>13009 Marseille</div>
+            <div class="alert-note">Cliff rescue, injured climber, 80m altitude</div>
+          </td>
+          <td><div class="type-val"><span class="fire-icon">🧗</span> Technical rescue</div></td>
+          <td>
+            <span class="intervention-name">INT-01</span>
+            <div id="row-badge-INT-01"></div>
+          </td>
+          <td>
+            <div class="crew-vehicle-group">
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">FPT-13-01</div>
+                <div class="crew-name lead">LT. BENJAMIN JOUAN</div>
+                <div class="crew-name">PAOLA MANNECHEZ</div>
+                <div class="crew-name">STEPHANE GAUTHIER</div>
+              </div>
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">HALF-02</div>
+                <div class="crew-name lead">JULIEN MAZÉ</div>
+              </div>
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">VSAV-13-03</div>
+                <div class="crew-name lead">PAUL JOLY</div>
+                <div class="crew-name">THOMAS TIERSEN</div>
+                <div class="crew-name">JULIA GALAMON</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <tr data-id="INT-02" onclick="selectRow(this)">
+          <td><span class="status-pill active"><span class="status-dot"></span>Active</span></td>
+          <td><span class="time-val">06:42</span></td>
+          <td>
+            <div class="location-val">12 Rue du Panier<br>13002 Marseille</div>
+            <div class="alert-note">3rd floor fire, 2 evacuated, propagation risk</div>
+          </td>
+          <td><div class="type-val"><span class="fire-icon">🔥</span> Apartment fire</div></td>
+          <td>
+            <span class="intervention-name">INT-02</span>
+            <div id="row-badge-INT-02"></div>
+          </td>
+          <td>
+            <div class="crew-vehicle-group">
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">FPT-13-02</div>
+                <div class="crew-name lead">LT. LOIC DEZEURE</div>
+                <div class="crew-name">REMI DEBIEF</div>
+              </div>
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">HALF-01</div>
+                <div class="crew-name lead">ALAIN DEVEZE</div>
+                <div class="crew-name">VINCENT SHARSHAR</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <tr data-id="INT-03" onclick="selectRow(this)">
+          <td><span class="status-pill active"><span class="status-dot"></span>Active</span></td>
+          <td><span class="time-val">07:15</span></td>
+          <td>
+            <div class="location-val">Calanque de Morgiou<br>13009 Marseille</div>
+            <div class="alert-note">Drone search op, missing hiker since 22:00</div>
+          </td>
+          <td><div class="type-val"><span class="fire-icon">🚁</span> Search & rescue</div></td>
+          <td>
+            <span class="intervention-name">INT-03</span>
+            <div id="row-badge-INT-03"></div>
+          </td>
+          <td>
+            <div class="crew-vehicle-group">
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">HALF-03</div>
+                <div class="crew-name lead">LT. KARIM BENALI</div>
+                <div class="crew-name">SOFIA MARTINEZ</div>
+              </div>
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">VTT-13-02</div>
+                <div class="crew-name lead">MARC DUPUIS</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <tr data-id="INT-04" onclick="selectRow(this)">
+          <td><span class="status-pill enroute"><span class="status-dot"></span>On the way</span></td>
+          <td><span class="time-val">08:03</span></td>
+          <td>
+            <div class="location-val">Port de l'Estaque<br>13016 Marseille</div>
+            <div class="alert-note">Chemical spill near dock, perimeter secured</div>
+          </td>
+          <td><div class="type-val"><span class="fire-icon">⚠️</span> Hazmat</div></td>
+          <td>
+            <span class="intervention-name">INT-04</span>
+            <div id="row-badge-INT-04"></div>
+          </td>
+          <td>
+            <div class="crew-vehicle-group">
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">CMIC-13-01</div>
+                <div class="crew-name lead">LT. NADIA FERRIER</div>
+                <div class="crew-name">KEVIN LEROY</div>
+              </div>
+              <div class="vehicle-crew-block">
+                <div class="veh-tag">VSAV-13-04</div>
+                <div class="crew-name lead">CAMILLE OBERT</div>
+                <div class="crew-name">HASSAN MEHDI</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ─── CLOCK ───
+function updateClock() { document.getElementById('clock').textContent = new Date().toTimeString().slice(0,8); }
+updateClock(); setInterval(updateClock, 1000);
+
+// ─── DATA ───
+const incidentData = {
+  'INT-01': { lat:43.3308, lng:5.4019, status:'enroute', label:'INT-01 — Technical rescue', detail:'FPT-13-01 · HALF-02 · VSAV-13-03', name:'Calanque de Sormiou',   coords:'43.3308, 5.4019' },
+  'INT-02': { lat:43.2696, lng:5.3850, status:'active',  label:'INT-02 — Apartment fire',  detail:'FPT-13-02 · HALF-01',             name:'Quartier du Panier',    coords:'43.2696, 5.3850' },
+  'INT-03': { lat:43.2140, lng:5.4330, status:'active',  label:'INT-03 — Search & rescue', detail:'HALF-03 · VTT-13-02',             name:'Calanque de Morgiou',   coords:'43.2140, 5.4330' },
+  'INT-04': { lat:43.3470, lng:5.3310, status:'enroute', label:'INT-04 — Hazmat',          detail:'CMIC-13-01 · VSAV-13-04',         name:"Port de l'Estaque",     coords:'43.3470, 5.3310' },
+};
+
+// crew per intervention: [ { veh, members: [ { name, lead } ] } ]
+const crewData = {
+  'INT-01': [
+    { veh:'FPT-13-01', members:[ {name:'LT. BENJAMIN JOUAN', lead:true}, {name:'PAOLA MANNECHEZ'}, {name:'STEPHANE GAUTHIER'} ] },
+    { veh:'HALF-02',   members:[ {name:'JULIEN MAZÉ', lead:true} ] },
+    { veh:'VSAV-13-03',members:[ {name:'PAUL JOLY', lead:true}, {name:'THOMAS TIERSEN'}, {name:'JULIA GALAMON'} ] },
+  ],
+  'INT-02': [
+    { veh:'FPT-13-02', members:[ {name:'LT. LOIC DEZEURE', lead:true}, {name:'REMI DEBIEF'} ] },
+    { veh:'HALF-01',   members:[ {name:'ALAIN DEVEZE', lead:true}, {name:'VINCENT SHARSHAR'} ] },
+  ],
+  'INT-03': [
+    { veh:'HALF-03',   members:[ {name:'LT. KARIM BENALI', lead:true}, {name:'SOFIA MARTINEZ'} ] },
+    { veh:'VTT-13-02', members:[ {name:'MARC DUPUIS', lead:true} ] },
+  ],
+  'INT-04': [
+    { veh:'CMIC-13-01',members:[ {name:'LT. NADIA FERRIER', lead:true}, {name:'KEVIN LEROY'} ] },
+    { veh:'VSAV-13-04',members:[ {name:'CAMILLE OBERT', lead:true}, {name:'HASSAN MEHDI'} ] },
+  ],
+};
+
+function buildPopupHTML(id) {
+  const inc  = incidentData[id];
+  const crew = crewData[id] || [];
+  const vehList = crew.map(b => b.veh).join(' · ');
+  return `
+    <div class="popup-name">${inc.label}</div>
+    <div class="popup-detail">${vehList}</div>
+    <button class="popup-call-btn" onclick="triggerCall(this, '${id}')">
+      <span class="call-icon">📞</span> CALL INTERVENTION
+    </button>`;
+}
+
+// ─── DOCUMENT STORE (in-memory, keyed by intervention id) ───
+// Each entry: { id, name, size, type, ext, addedAt, dataUrl (for images), objectUrl }
+const docStore = { 'INT-01': [], 'INT-02': [], 'INT-03': [], 'INT-04': [] };
+
+let currentId = null;
+
+// ─── MAP ───
+const map = L.map('map', { zoomControl: true }).setView([43.2850, 5.3900], 11);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap contributors © CARTO', subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+const markers = {};
+Object.entries(incidentData).forEach(([id, inc]) => {
+  const color = inc.status === 'active' ? '#E8190C' : '#F0A000';
+  const anim  = inc.status === 'active' ? 'animation:pulse 1.6s infinite;' : '';
+  const icon  = L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 3px ${color}55;${anim}"></div>`,
+    iconSize: [14,14], iconAnchor: [7,7], popupAnchor: [0,-12]
+  });
+  const m = L.marker([inc.lat, inc.lng], { icon }).addTo(map)
+    .bindPopup(() => buildPopupHTML(id), { maxWidth: 300 });
+  m.on('click', () => selectIncident(id));
+  markers[id] = m;
+});
+
+// ─── SELECTION ───
+function selectIncident(id) {
+  currentId = id;
+  const inc = incidentData[id];
+  document.querySelectorAll('#tbody tr').forEach(r => r.classList.remove('selected'));
+  const row = document.querySelector(`#tbody tr[data-id="${id}"]`);
+  if (row) row.classList.add('selected');
+  map.flyTo([inc.lat, inc.lng], 14, { duration: 0.8 });
+  markers[id].openPopup();
+  document.getElementById('sb-id').textContent     = id;
+  document.getElementById('sb-name').textContent   = inc.name;
+  document.getElementById('sb-coords').textContent = inc.coords;
+  document.getElementById('sidebar-idle').style.display   = 'none';
+  document.getElementById('sidebar-active').style.display = 'flex';
+  renderDocs();
+}
+
+function selectRow(tr) { selectIncident(tr.dataset.id); }
+
+// ─── CALL SIMULATION ───
+function triggerCall(btn, name) {
+  if (btn.classList.contains('calling')) {
+    // hang up
+    btn.classList.remove('calling');
+    btn.innerHTML = '<span class="call-icon">📞</span> CALL';
+    return;
+  }
+  btn.classList.add('calling');
+  btn.innerHTML = '<span class="call-icon"></span> CALLING…';
+  // auto-stop after 8s (simulated answer/hangup)
+  setTimeout(() => {
+    if (btn.classList.contains('calling')) {
+      btn.classList.remove('calling');
+      btn.innerHTML = '<span class="call-icon">📞</span> CALL';
+    }
+  }, 8000);
+}
+
+function clearSelection() {
+  currentId = null;
+  document.querySelectorAll('#tbody tr').forEach(r => r.classList.remove('selected'));
+  map.closePopup();
+  document.getElementById('sidebar-idle').style.display   = 'flex';
+  document.getElementById('sidebar-active').style.display = 'none';
+}
+
+// ─── DRAG & DROP on upload zone ───
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  if (currentId) handleFiles(e.dataTransfer.files);
+});
+
+// ─── FILE HANDLING ───
+function extOf(name) {
+  const parts = name.split('.');
+  return parts.length > 1 ? parts.pop().toLowerCase() : '';
+}
+function iconClass(ext) {
+  if (['pdf'].includes(ext)) return 'pdf';
+  if (['jpg','jpeg','png','gif','webp','svg','bmp','tiff'].includes(ext)) return 'img';
+  if (['doc','docx','odt','rtf','txt','md'].includes(ext)) return 'doc';
+  if (['zip','rar','7z','tar','gz'].includes(ext)) return 'zip';
+  return 'other';
+}
+function iconLabel(ext) {
+  const c = iconClass(ext);
+  if (c === 'pdf') return 'PDF';
+  if (c === 'img') return '🖼';
+  if (c === 'doc') return 'DOC';
+  if (c === 'zip') return 'ZIP';
+  return ext.toUpperCase().slice(0,3) || '—';
+}
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+function fmtTime(ts) {
+  return new Date(ts).toTimeString().slice(0,5);
+}
+
+function handleFiles(fileList) {
+  if (!currentId) return;
+  Array.from(fileList).forEach(file => {
+    const ext = extOf(file.name);
+    const cls = iconClass(ext);
+    const entry = {
+      uid: Date.now() + Math.random(),
+      name: file.name,
+      size: file.size,
+      ext,
+      cls,
+      addedAt: Date.now(),
+      objectUrl: null,
+      dataUrl: null,
+      file
+    };
+    // for images: generate preview
+    if (cls === 'img') {
+      const reader = new FileReader();
+      reader.onload = e => {
+        entry.dataUrl = e.target.result;
+        entry.objectUrl = e.target.result;
+        renderDocs();
+      };
+      reader.readAsDataURL(file);
+    } else {
+      entry.objectUrl = URL.createObjectURL(file);
+    }
+    docStore[currentId].push(entry);
+  });
+  // reset input so same file can be re-added if needed
+  document.getElementById('file-input').value = '';
+  renderDocs();
+  updateRowBadge(currentId);
+}
+
+function deleteDoc(uid) {
+  if (!currentId) return;
+  docStore[currentId] = docStore[currentId].filter(d => d.uid !== uid);
+  renderDocs();
+  updateRowBadge(currentId);
+}
+
+function downloadDoc(uid) {
+  if (!currentId) return;
+  const d = docStore[currentId].find(x => x.uid === uid);
+  if (!d || !d.objectUrl) return;
+  const a = document.createElement('a');
+  a.href = d.objectUrl;
+  a.download = d.name;
+  a.click();
+}
+
+// ─── RENDER DOCS LIST ───
+function renderDocs() {
+  if (!currentId) return;
+  const docs = docStore[currentId];
+  const list  = document.getElementById('docs-list');
+  const empty = document.getElementById('docs-empty');
+  const count = document.getElementById('docs-count');
+  count.textContent = docs.length;
+
+  // clear (except empty notice)
+  list.innerHTML = '';
+
+  if (docs.length === 0) {
+    const em = document.createElement('div');
+    em.className = 'docs-empty';
+    em.textContent = 'No documents yet for this intervention.';
+    list.appendChild(em);
+    return;
+  }
+
+  docs.forEach(d => {
+    const item = document.createElement('div');
+    item.className = 'doc-item';
+
+    // icon or thumbnail
+    if (d.cls === 'img' && d.dataUrl) {
+      const img = document.createElement('img');
+      img.className = 'doc-thumb';
+      img.src = d.dataUrl;
+      img.alt = d.name;
+      item.appendChild(img);
+    } else {
+      const ic = document.createElement('div');
+      ic.className = `doc-icon ${d.cls}`;
+      ic.textContent = iconLabel(d.ext);
+      item.appendChild(ic);
+    }
+
+    // meta
+    const meta = document.createElement('div');
+    meta.className = 'doc-meta';
+    const nm = document.createElement('div');
+    nm.className = 'doc-name';
+    nm.textContent = d.name;
+    const sub = document.createElement('div');
+    sub.className = 'doc-sub';
+    sub.textContent = `${fmtSize(d.size)} · ${fmtTime(d.addedAt)}`;
+    meta.appendChild(nm);
+    meta.appendChild(sub);
+    item.appendChild(meta);
+
+    // actions
+    const acts = document.createElement('div');
+    acts.className = 'doc-actions';
+
+    const dl = document.createElement('button');
+    dl.className = 'doc-btn';
+    dl.textContent = '↓';
+    dl.title = 'Download';
+    dl.onclick = e => { e.stopPropagation(); downloadDoc(d.uid); };
+
+    const del = document.createElement('button');
+    del.className = 'doc-btn del';
+    del.textContent = '×';
+    del.title = 'Remove';
+    del.onclick = e => { e.stopPropagation(); deleteDoc(d.uid); };
+
+    acts.appendChild(dl);
+    acts.appendChild(del);
+    item.appendChild(acts);
+    list.appendChild(item);
+  });
+}
+
+// ─── ROW BADGE (doc count per intervention) ───
+function updateRowBadge(id) {
+  const el = document.getElementById(`row-badge-${id}`);
+  if (!el) return;
+  const n = docStore[id].length;
+  el.innerHTML = n > 0
+    ? `<span class="row-doc-badge">📎 ${n} doc${n > 1 ? 's' : ''}</span>`
+    : '';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --panel-bg: #151515;
+            --text-main: #ffffff;
+            --text-muted: #6b6b6b;
+            --accent-red: #FF2200;
+            --alert-yellow: #ffcc00;
+            --border-color: #2a2a2a;
+            --map-bg: #0a0a0a;
+            --map-grid: rgba(42, 42, 42, 0.18);
+            --pulse-color: #22100e;
+            --ff-blue: #3a7aff;
+            --tactical-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='rgba(255,58,32,0.2)' stroke='rgba(255,58,32,0.8)' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='2' fill='rgba(255,58,32,1)'/%3E%3C/svg%3E") 16 16, crosshair;
+        }
+        body.light-mode {
+            --bg-color: #F0EDE8;
+            --panel-bg: #ffffff;
+            --text-main: #151515;
+            --text-muted: #7a756e;
+            --accent-red: #FF2200;
+            --alert-yellow: #cc9600;
+            --border-color: #c5c1ba;
+            --map-bg: #e6e2da;
+            --map-grid: rgba(0,0,0,0.09);
+            --pulse-color: #ffeaea;
+            --ff-blue: #1a5fe0;
+        }
+        * { box-sizing: border-box; cursor: var(--tactical-cursor) !important; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Barlow Semi Condensed', monospace;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .theme-toggle-container {
+            width: 950px;
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 15px;
+        }
+        #theme-toggle-btn {
+            background: var(--panel-bg);
+            border: 1.5px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 20px;
+            font-family: 'Barlow Semi Condensed', monospace;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+        #theme-toggle-btn:hover { border-color: var(--accent-red); color: var(--accent-red); }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: 140px 250px 390px;
+            gap: 10px;
+            width: 950px;
+        }
+        .panel-wrapper { position: relative; width: 100%; height: 100%; }
+        button.panel-wrapper {
+            appearance: none; -webkit-appearance: none;
+            background: transparent; border: none;
+            padding: 0; margin: 0;
+            text-align: left; font-family: inherit; color: inherit;
+            outline: none;
+        }
+        .panel-bg {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1; pointer-events: none;
+        }
+        .panel-bg path {
+            fill: var(--panel-bg);
+            stroke: var(--border-color);
+            stroke-width: 2px;
+            transition: fill 0.3s ease, stroke 0.3s ease;
+        }
+        .panel-content {
+            position: relative; z-index: 2;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+        }
+        .time-content { align-items: center; justify-content: center; padding: 15px 20px 15px 80px; }
+        .speed-content { padding: 20px 20px 20px 60px; align-items: center; justify-content: center; }
+        .autonomy-content { padding: 20px 60px 20px 20px; align-items: center; }
+        .alert-content { align-items: center; justify-content: center; padding: 15px 80px 15px 20px; }
+
+        /* ALERT PANEL — fond clignote entre panel-bg et rouge vif */
+        .alert-shape {
+            animation: pulseAlertFill 1s infinite steps(1, end);
+        }
+        @keyframes pulseAlertFill {
+            0%  { fill: var(--panel-bg); }
+            50% { fill: #FF2200; }
+        }
+
+        /* Texte alerte — clignote entre rouge et noir en sync */
+        .alert-main-text {
+            font-size: 32px; font-weight: 900;
+            letter-spacing: 1px;
+            animation: pulseAlertText 1s infinite steps(1, end);
+        }
+        @keyframes pulseAlertText {
+            0%  { color: var(--accent-red); text-shadow: 0 0 8px rgba(255,34,0,0.2); }
+            50% { color: #000000; text-shadow: none; }
+        }
+        .alert-title-blink {
+            animation: pulseAlertText 1s infinite steps(1, end);
+        }
+
+        .map-wrapper { grid-column: 1 / -1; }
+        .map-content { padding: 0; }
+        .panel-title { color: var(--text-muted); font-size: 20px; letter-spacing: 2px; text-transform: uppercase; }
+        .time-display { font-size: 62px; line-height: 1; margin-top: -5px; font-weight: 700; text-align: center; }
+        .time-display .seconds { color: var(--accent-red); }
+        .chrono-display { color: var(--text-muted); font-size: 13px; letter-spacing: 1px; margin-top: 2px; text-align: center; }
+        .speed-container { position: relative; margin-top: -5px; display: flex; flex-direction: column; align-items: center; }
+        .autonomy-display { margin-top: 20px; text-align: center; }
+        .autonomy-val { font-size: 70px; line-height: 1; }
+        .autonomy-unit { font-size: 20px; color: var(--text-muted); }
+        .map-container { width: 100%; height: 100%; position: relative; background-color: var(--map-bg); transition: background-color 0.3s ease; }
+        #placement-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,34,0,0.15); border: 1px solid var(--accent-red);
+            padding: 10px 25px; color: var(--accent-red); font-size: 16px;
+            font-weight: 700; letter-spacing: 2px; border-radius: 6px;
+            z-index: 10; pointer-events: none; backdrop-filter: blur(2px);
+        }
+        #rally-confirm {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,10,10,0.96);
+            border: 1.5px solid var(--accent-red);
+            padding: 22px 32px;
+            z-index: 20;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            backdrop-filter: blur(8px);
+            min-width: 290px;
+        }
+        body.light-mode #rally-confirm { background: rgba(240,237,232,0.97); }
+        #rally-confirm .rally-label { font-size: 11px; letter-spacing: 3px; color: var(--text-muted); text-transform: uppercase; }
+        #rally-confirm .rally-action { font-size: 20px; font-weight: 900; color: var(--accent-red); letter-spacing: 1px; text-align: center; line-height: 1.3; }
+        #rally-confirm .rally-drones { display: flex; gap: 8px; }
+        #rally-confirm .rally-drone-tag { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; padding: 4px 10px; border: 1px solid var(--accent-red); color: var(--accent-red); }
+        #rally-confirm .rally-btns { display: flex; gap: 10px; width: 100%; margin-top: 4px; }
+        #rally-confirm button {
+            flex: 1; padding: 10px 0;
+            font-family: 'Barlow Semi Condensed', monospace;
+            font-weight: 800; font-size: 14px; letter-spacing: 2px;
+            border-radius: 3px; border: 1.5px solid;
+            text-transform: uppercase; transition: all 0.15s;
+        }
+        .btn-confirm { background: var(--accent-red); border-color: var(--accent-red) !important; color: #fff !important; }
+        .btn-confirm:hover { opacity: 0.82; }
+        .btn-cancel { background: transparent; border-color: var(--border-color) !important; color: var(--text-muted) !important; }
+        .btn-cancel:hover { border-color: var(--text-muted) !important; color: var(--text-main) !important; }
+        .map-visual { width: 100%; height: 100%; position: relative; }
+        #dashboard-leaflet-map { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+        .map-svg-content { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; pointer-events: all; }
+        .leaflet-control-attribution { display: none !important; }
+        .leaflet-control-zoom { display: none !important; }
+
+        /* DRONE ICON — réticule tournant */
+        @keyframes spin-reticle { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin-reticle-ccw { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+    </style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute;">
+    <defs>
+        <clipPath id="clip-tl"><path d="M 110 1 L 459 1 Q 469 1 469 11 L 469 129 Q 469 139 459 139 L 75 139 Q 65 139 67 129 L 97 11 Q 100 1 110 1 Z" /></clipPath>
+        <clipPath id="clip-tr"><path d="M 11 1 L 359 1 Q 369 1 372 11 L 402 129 Q 405 139 395 139 L 11 139 Q 1 139 1 129 L 1 11 Q 1 1 11 1 Z" /></clipPath>
+        <clipPath id="clip-ml"><path d="M 73 1 L 459 1 Q 469 1 469 11 L 469 239 Q 469 249 459 249 L 11 249 Q 1 249 3 239 L 60 11 Q 63 1 73 1 Z" /></clipPath>
+        <clipPath id="clip-mr"><path d="M 11 1 L 397 1 Q 406 1 409 11 L 467 239 Q 469 249 459 249 L 11 249 Q 1 249 1 239 L 1 11 Q 1 1 11 1 Z" /></clipPath>
+        <clipPath id="clip-bot"><path d="M 14 1 L 936 1 Q 946 1 944 11 L 851 379 Q 849 389 839 389 L 111 389 Q 101 389 99 379 L 6 11 Q 4 1 14 1 Z" /></clipPath>
+    </defs>
+</svg>
+
+<!-- Réutilisable : symbole drone réticule -->
+<svg width="0" height="0" style="position:absolute;">
+  <defs>
+    <!-- Un drone = réticule tactique. On définit le symbole une fois, on le <use> 4 fois -->
+    <symbol id="drone-reticle" viewBox="-22 -22 44 44">
+      <!-- Point central rouge -->
+      <circle cx="0" cy="0" r="3.5" fill="#FF2200"/>
+      <!-- Anneau externe -->
+      <circle cx="0" cy="0" r="16" fill="none" stroke="#FF2200" stroke-width="2.5"/>
+      <!-- Secteurs coupés (4 gaps) : dessinés comme 4 arcs séparés -->
+      <!-- L'anneau complet moins les gaps est rendu par stroke-dasharray sur le cercle ci-dessus -->
+      <!-- Branches de visée — horizontales et verticales courtes -->
+      <line x1="-22" y1="0" x2="-19" y2="0" stroke="#FF2200" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="19"  y1="0" x2="22"  y2="0" stroke="#FF2200" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="0" y1="-22" x2="0" y2="-19" stroke="#FF2200" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="0" y1="19"  x2="0" y2="22"  stroke="#FF2200" stroke-width="2.2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="theme-toggle-container">
+    <button id="theme-toggle-btn">Light Mode</button>
+</div>
+
+<div class="dashboard">
+
+    <!-- ROW 1 : SPEED + ALERT -->
+    <div class="panel-wrapper">
+        <svg class="panel-bg" viewBox="0 0 470 140">
+            <path d="M 110 1 L 459 1 Q 469 1 469 11 L 469 129 Q 469 139 459 139 L 75 139 Q 65 139 67 129 L 97 11 Q 100 1 110 1 Z" />
+        </svg>
+        <div class="panel-content" style="clip-path: url(#clip-tl); padding: 0; position: relative; overflow: hidden; background: var(--bg-color)">
+            <div id="speed-fill" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(#ff220082,#ff220000);transition:height 0.5s cubic-bezier(0.4,2,0.6,1);"></div>
+            <div id="speed-line" style="position:absolute;left:0;right:0;height:10px;background:var(--accent-red);box-shadow:0 0 12px 2px var(--accent-red);transition:bottom 0.5s cubic-bezier(0.4,2,0.6,1);bottom:50%;"></div>
+            <div style="position:absolute;left:25%;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:baseline;justify-content:center;gap:8px;">
+                <span id="speed-val" style="font-size:100px;font-weight:700;line-height:1;color:var(--bg-color);-webkit-text-stroke: 2px var(--accent-red); text-shadow: 4px 4px var(--accent-red);">0</span>
+                <span style="font-size:26px;color:rgba(255,255,255,0.5);letter-spacing:2px;">km/h</span>
+            </div>
+        </div>
+    </div>
+
+    <button class="panel-wrapper" id="reinforce-btn">
+        <svg class="panel-bg" viewBox="0 0 470 140">
+            <path class="alert-shape" d="M 11 1 L 359 1 Q 369 1 372 11 L 402 129 Q 405 139 395 139 L 11 139 Q 1 139 1 129 L 1 11 Q 1 1 11 1 Z" />
+        </svg>
+        <div class="panel-content alert-content" style="clip-path: url(#clip-tr); background-color: transparent;">
+            <div class="panel-title alert-title-blink">ALERT REINFORCEMENTS</div>
+            <div class="alert-main-text" id="alert-unit-text">CALL AMBULANCE</div>
+        </div>
+    </button>
+
+    <!-- ROW 2 : CHRONO + AUTONOMY -->
+    <div class="panel-wrapper">
+        <svg class="panel-bg" viewBox="0 0 470 250">
+            <path d="M 73 1 L 459 1 Q 469 1 469 11 L 469 239 Q 469 249 459 249 L 11 249 Q 1 249 3 239 L 60 11 Q 63 1 73 1 Z" />
+        </svg>
+        <div class="panel-content time-content" style="clip-path: url(#clip-ml);">
+            <div class="panel-title">INTERVENTION CHRONO</div>
+            <div class="time-display" id="chrono-big" style="font-size: 100px;color:var(--bg-color);-webkit-text-stroke: 2px var(--accent-red); text-shadow: 4px 4px var(--accent-red);">00:00:00</div>
+            <div class="chrono-display"><span id="clock-hm">--:--</span><span class="seconds" id="clock-s">:--</span></div>
+        </div>
+    </div>
+
+    <!-- BATTERY PANEL — barres verticales rouges vives -->
+    <div class="panel-wrapper">
+        <svg class="panel-bg" viewBox="0 0 470 250">
+            <path d="M 11 1 L 397 1 Q 406 1 409 11 L 467 239 Q 469 249 459 249 L 11 249 Q 1 249 1 239 L 1 11 Q 1 1 11 1 Z" />
+        </svg>
+        <div class="panel-content" style="clip-path: url(#clip-mr); padding: 0; position: relative; overflow: hidden; background: var(--bg-color)">
+            <!-- Barres de batterie injectées en JS -->
+            <div id="battery-bars" style="position:absolute;inset:0;display:flex;gap:5px;padding:0;box-sizing:border-box;align-items:flex-end;"></div>
+            <!-- Valeur numérique par dessus -->
+            <div style="position:relative;z-index:3;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+                <div style="display:flex;align-items:baseline;gap:6px;font-size:140px;font-weight:700;line-height:1;color:var(--bg-color);-webkit-text-stroke: 2px var(--accent-red); text-shadow: 4px 4px var(--bg-color);">
+                    <span id="battery-km">0</span>
+                    <span>%</span>
+                </div>
+                <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.3);margin-top:4px;">FUEL <span id="fuel-percent">0%</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-wrapper map-wrapper">
+        <svg class="panel-bg" viewBox="0 0 950 390">
+            <path d="M 14 1 L 936 1 Q 946 1 944 11 L 851 379 Q 849 389 839 389 L 111 389 Q 101 389 99 379 L 6 11 Q 4 1 14 1 Z" />
+        </svg>
+        <div class="panel-content map-content" style="clip-path: url(#clip-bot);">
+            <div class="map-container">
+                <div id="placement-overlay" style="display:none;">
+                    SELECT DESTINATION FOR <span id="placing-drone-id"></span> — CLICK ON MAP
+                </div>
+                <div id="rally-confirm">
+                    <div class="rally-label">Drone tactical command</div>
+                    <div class="rally-action">RALLY ALL DRONES<br>ON VICTIM?</div>
+                    <div class="rally-drones">
+                        <span class="rally-drone-tag">D1</span>
+                        <span class="rally-drone-tag">D2</span>
+                        <span class="rally-drone-tag">D3</span>
+                        <span class="rally-drone-tag">D4</span>
+                    </div>
+                    <div class="rally-btns">
+                        <button class="btn-confirm" id="rally-yes">CONFIRM</button>
+                        <button class="btn-cancel" id="rally-no">CANCEL</button>
+                    </div>
+                </div>
+
+                <div class="map-visual">
+                    <div id="dashboard-leaflet-map"></div>
+                    <svg class="map-svg-content" id="map-svg" viewBox="0 0 950 390" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <radialGradient id="grad-fire" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#ff4400" stop-opacity="0.45"/>
+                                <stop offset="100%" stop-color="#ff4400" stop-opacity="0"/>
+                            </radialGradient>
+                            <radialGradient id="grad-collapse" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#ff9900" stop-opacity="0.38"/>
+                                <stop offset="100%" stop-color="#ff9900" stop-opacity="0"/>
+                            </radialGradient>
+                            <radialGradient id="grad-flood" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#0088ff" stop-opacity="0.35"/>
+                                <stop offset="100%" stop-color="#0088ff" stop-opacity="0"/>
+                            </radialGradient>
+                            <radialGradient id="grad-blocked" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#cc00ff" stop-opacity="0.32"/>
+                                <stop offset="100%" stop-color="#cc00ff" stop-opacity="0"/>
+                            </radialGradient>
+                        </defs>
+
+                        <!-- DANGER ZONES -->
+                        <ellipse cx="200" cy="160" rx="110" ry="75" fill="url(#grad-collapse)" />
+                        <ellipse cx="730" cy="90" rx="90" ry="60" fill="url(#grad-collapse)" />
+                        <ellipse cx="820" cy="310" rx="100" ry="55" fill="url(#grad-flood)" />
+                        <ellipse cx="130" cy="80" rx="70" ry="45" fill="url(#grad-blocked)" />
+
+                        <!-- TOPO -->
+                        <g fill="none" stroke="rgba(120,160,100,0.22)" stroke-width="1.2">
+                            <path d="M 60,300 C 80,240 130,200 190,210 C 250,220 280,260 260,310 C 240,360 150,370 100,350 Z"/>
+                            <path d="M 85,295 C 100,250 145,218 195,228 C 245,238 268,268 250,308 C 232,348 158,355 115,338 Z"/>
+                            <path d="M 110,288 C 122,258 158,236 198,244 C 238,252 255,275 240,305 C 225,335 165,340 130,325 Z"/>
+                        </g>
+                        <g fill="none" stroke="rgba(120,160,100,0.22)" stroke-width="1.2">
+                            <path d="M 650,50 C 720,30 820,50 870,100 C 920,150 900,220 840,240 C 780,260 700,240 660,200 C 620,160 610,80 650,50 Z"/>
+                            <path d="M 686,80 C 736,65 808,80 845,116 C 882,152 866,204 818,220 C 770,236 708,220 676,188 C 644,156 646,98 686,80 Z"/>
+                        </g>
+
+                        <!-- LEGEND -->
+                        <g id="legend" transform="translate(55, 22)">
+                            <rect x="0" y="0" width="182" height="118" rx="3" fill="rgba(8,8,8,0.78)" stroke="rgba(80,80,80,0.5)" stroke-width="1"/>
+                            <text x="10" y="15" fill="rgba(150,150,150,0.9)" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace" letter-spacing="2">ENV. HAZARDS</text>
+                            <line x1="8" y1="20" x2="174" y2="20" stroke="rgba(80,80,80,0.4)" stroke-width="0.8"/>
+                            <rect x="10" y="28" width="12" height="12" rx="2" fill="#ff4400" opacity="0.7"/>
+                            <text x="28" y="38" fill="rgba(220,220,220,0.85)" font-size="10" font-weight="600" font-family="'Barlow Semi Condensed', monospace" letter-spacing="1">ACTIVE FIRE</text>
+                            <rect x="10" y="46" width="12" height="12" rx="2" fill="#ff9900" opacity="0.7"/>
+                            <text x="28" y="56" fill="rgba(220,220,220,0.85)" font-size="10" font-weight="600" font-family="'Barlow Semi Condensed', monospace" letter-spacing="1">COLLAPSE RISK</text>
+                            <rect x="10" y="64" width="12" height="12" rx="2" fill="#0088ff" opacity="0.7"/>
+                            <text x="28" y="74" fill="rgba(220,220,220,0.85)" font-size="10" font-weight="600" font-family="'Barlow Semi Condensed', monospace" letter-spacing="1">FLOOD ZONE</text>
+                            <rect x="10" y="82" width="12" height="12" rx="2" fill="#cc00ff" opacity="0.65"/>
+                            <text x="28" y="92" fill="rgba(220,220,220,0.85)" font-size="10" font-weight="600" font-family="'Barlow Semi Condensed', monospace" letter-spacing="1">ACCESS BLOCKED</text>
+                            <line x1="10" y1="108" x2="22" y2="108" stroke="rgba(120,160,100,0.65)" stroke-width="1.2"/>
+                            <text x="28" y="112" fill="rgba(220,220,220,0.85)" font-size="10" font-weight="600" font-family="'Barlow Semi Condensed', monospace" letter-spacing="1">ELEVATION</text>
+                        </g>
+
+                        <!-- Trajet véhicule -->
+                        <path d="M 475,360 L 475,250 L 320,150 L 620,170" fill="none" stroke="var(--text-muted)" stroke-width="3" stroke-dasharray="6 6" />
+                        <path d="M 475,360 L 475,280" fill="none" stroke="var(--accent-red)" stroke-width="3" opacity="0.8"/>
+
+                        <!-- Trajectoires drones -->
+                        <line id="path-d1" stroke="var(--accent-red)" stroke-width="1.5" stroke-dasharray="4 4" style="display:none;" />
+                        <line id="path-d2" stroke="var(--accent-red)" stroke-width="1.5" stroke-dasharray="4 4" style="display:none;" />
+                        <line id="path-d3" stroke="var(--accent-red)" stroke-width="1.5" stroke-dasharray="4 4" style="display:none;" />
+                        <line id="path-d4" stroke="var(--accent-red)" stroke-width="1.5" stroke-dasharray="4 4" style="display:none;" />
+
+                        <!-- Ghosts cible -->
+                        <g id="ghost-d1" opacity="0.35" style="display:none;"><circle cx="0" cy="0" r="6" fill="var(--text-main)"/><circle cx="0" cy="0" r="14" fill="none" stroke="var(--accent-red)" stroke-width="2"/></g>
+                        <g id="ghost-d2" opacity="0.35" style="display:none;"><circle cx="0" cy="0" r="6" fill="var(--text-main)"/><circle cx="0" cy="0" r="14" fill="none" stroke="var(--accent-red)" stroke-width="2"/></g>
+                        <g id="ghost-d3" opacity="0.35" style="display:none;"><circle cx="0" cy="0" r="6" fill="var(--text-main)"/><circle cx="0" cy="0" r="14" fill="none" stroke="var(--accent-red)" stroke-width="2"/></g>
+                        <g id="ghost-d4" opacity="0.35" style="display:none;"><circle cx="0" cy="0" r="6" fill="var(--text-main)"/><circle cx="0" cy="0" r="14" fill="none" stroke="var(--accent-red)" stroke-width="2"/></g>
+
+                        <!-- ========== DRONES — RÉTICULE TOURNANT ========== -->
+                        <!--
+                            Chaque drone = 3 couches :
+                            1. Fond noir (hitbox)
+                            2. Réticule externe qui tourne (anneau + croix courtes)
+                            3. Point central fixe + label Dx
+                        -->
+
+                        <!-- DRONE 1 -->
+                        <g class="drone-group" id="drone-1">
+                            <!-- hitbox invisible -->
+                            <circle cx="0" cy="0" r="28" fill="transparent"/>
+                            <!-- anneau + secteurs tournants CW -->
+                            <g id="d1-spin">
+                                <circle cx="0" cy="0" r="14" fill="none" stroke="#FF2200" stroke-width="4"
+                                    stroke-dasharray="16 6"/>
+                                <line x1="-22" y1="0" x2="-17" y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="17"  y1="0" x2="22"  y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="-22" x2="0" y2="-17" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="17"  x2="0" y2="22"  stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                            </g>
+                            <!-- cercle intérieur fixe + dot -->
+                            <circle cx="0" cy="0" r="5" fill="none" stroke="#FF2200" stroke-width="2.5"/>
+                            <circle cx="0" cy="0" r="2.5" fill="#FF2200"/>
+                            <text x="18" y="4" fill="white" font-size="12" font-weight="800"
+                                font-family="'JetBrains Mono', monospace" style="pointer-events:none;">D1</text>
+                        </g>
+
+                        <!-- DRONE 2 -->
+                        <g class="drone-group" id="drone-2">
+                            <circle cx="0" cy="0" r="28" fill="transparent"/>
+                            <g id="d2-spin">
+                                <circle cx="0" cy="0" r="14" fill="none" stroke="#FF2200" stroke-width="4"
+                                    stroke-dasharray="16 6"/>
+                                <line x1="-22" y1="0" x2="-17" y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="17"  y1="0" x2="22"  y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="-22" x2="0" y2="-17" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="17"  x2="0" y2="22"  stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                            </g>
+                            <circle cx="0" cy="0" r="5" fill="none" stroke="#FF2200" stroke-width="2.5"/>
+                            <circle cx="0" cy="0" r="2.5" fill="#FF2200"/>
+                            <text x="18" y="4" fill="white" font-size="12" font-weight="800"
+                                font-family="'JetBrains Mono', monospace" style="pointer-events:none;">D2</text>
+                        </g>
+
+                        <!-- DRONE 3 -->
+                        <g class="drone-group" id="drone-3">
+                            <circle cx="0" cy="0" r="28" fill="transparent"/>
+                            <g id="d3-spin">
+                                <circle cx="0" cy="0" r="14" fill="none" stroke="#FF2200" stroke-width="4"
+                                    stroke-dasharray="16 6"/>
+                                <line x1="-22" y1="0" x2="-17" y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="17"  y1="0" x2="22"  y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="-22" x2="0" y2="-17" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="17"  x2="0" y2="22"  stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                            </g>
+                            <circle cx="0" cy="0" r="5" fill="none" stroke="#FF2200" stroke-width="2.5"/>
+                            <circle cx="0" cy="0" r="2.5" fill="#FF2200"/>
+                            <text x="18" y="4" fill="white" font-size="12" font-weight="800"
+                                font-family="'JetBrains Mono', monospace" style="pointer-events:none;">D3</text>
+                        </g>
+
+                        <!-- DRONE 4 -->
+                        <g class="drone-group" id="drone-4">
+                            <circle cx="0" cy="0" r="28" fill="transparent"/>
+                            <g id="d4-spin">
+                                <circle cx="0" cy="0" r="14" fill="none" stroke="#FF2200" stroke-width="4"
+                                    stroke-dasharray="16 6"/>
+                                <line x1="-22" y1="0" x2="-17" y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="17"  y1="0" x2="22"  y2="0" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="-22" x2="0" y2="-17" stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                                <line x1="0" y1="17"  x2="0" y2="22"  stroke="#FF2200" stroke-width="3.5" stroke-linecap="round"/>
+                            </g>
+                            <circle cx="0" cy="0" r="5" fill="none" stroke="#FF2200" stroke-width="2.5"/>
+                            <circle cx="0" cy="0" r="2.5" fill="#FF2200"/>
+                            <text x="18" y="4" fill="white" font-size="12" font-weight="800"
+                                font-family="'JetBrains Mono', monospace" style="pointer-events:none;">D4</text>
+                        </g>
+
+                        <!-- VICTIME -->
+                        <g id="victim-marker" transform="translate(620,170)">
+                            <circle cx="0" cy="0" r="28" fill="transparent"/>
+                            <circle cx="0" cy="0" r="14" fill="none" stroke="var(--alert-yellow)" stroke-width="1.5">
+                                <animate attributeName="r" values="4;22;4" dur="1.8s" repeatCount="indefinite"/>
+                                <animate attributeName="opacity" values="1;0;1" dur="1.8s" repeatCount="indefinite"/>
+                            </circle>
+                            <path d="M -8,0 L 8,0 M 0,-8 L 0,8" stroke="var(--alert-yellow)" stroke-width="2"/>
+                            <text x="16" y="4" fill="var(--alert-yellow)" font-size="12" font-family="'JetBrains Mono', monospace">VICTIM</text>
+                        </g>
+
+                        <!-- FIREFIGHTERS -->
+                        <g id="ff-karim" transform="translate(554,215)">
+                            <circle cx="-7" cy="0" r="5" fill="#3a7aff"/>
+                            <rect x="-2" y="-9" width="52" height="18" rx="2" fill="rgba(8,8,20,0.85)" stroke="#3a7aff" stroke-width="1.2"/>
+                            <text x="4" y="5" fill="#ffffff" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace" style="pointer-events:none;">KARIM</text>
+                        </g>
+                        <g id="ff-luca" transform="translate(487,348)">
+                            <circle cx="-7" cy="0" r="5" fill="#3a7aff"/>
+                            <rect x="-2" y="-9" width="46" height="18" rx="2" fill="rgba(8,8,20,0.85)" stroke="#3a7aff" stroke-width="1.2"/>
+                            <text x="4" y="5" fill="#ffffff" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace" style="pointer-events:none;">LUCA</text>
+                        </g>
+
+                        <!-- Curseur véhicule -->
+                        <g id="map-cursor" transform="translate(475,360)">
+                            <polygon points="0,-16 10,10 0,5 -10,10" fill="var(--accent-red)"/>
+                            <circle cx="0" cy="0" r="22" fill="none" stroke="var(--accent-red)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.5"/>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- THEME ---
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    themeToggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('light-mode');
+        themeToggleBtn.textContent = document.body.classList.contains('light-mode') ? 'Dark Mode' : 'Light Mode';
+        updateDashTile();
+    });
+
+    // --- REINFORCEMENTS ---
+    const reinforceBtn = document.getElementById('reinforce-btn');
+    const alertUnitText = document.getElementById('alert-unit-text');
+    const unitsList = ['CALL AMBULANCE', 'CALL FIRE TRUCK', 'CALL SWAT SQUAD', 'CALL EVAC HELI'];
+    let currentUnitIdx = 0;
+    reinforceBtn.addEventListener('click', () => {
+        currentUnitIdx = (currentUnitIdx + 1) % unitsList.length;
+        alertUnitText.textContent = unitsList[currentUnitIdx];
+    });
+
+    // --- CLOCK ---
+    const dispatchStr = "13:42:08";
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clock-hm').textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        document.getElementById('clock-s').textContent = `:${String(now.getSeconds()).padStart(2,'0')}`;
+        const [dh,dm,ds] = dispatchStr.split(':').map(Number);
+        let d = new Date(); d.setHours(dh,dm,ds,0);
+        let diff = Math.max(0, Math.floor((now-d)/1000));
+        const h = String(Math.floor(diff/3600)).padStart(2,'0');
+        const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
+        const s = String(diff%60).padStart(2,'0');
+        document.getElementById('chrono-big').textContent = `${h}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    // --- SPEEDOMETER ---
+    const MAX_SPEED = 80;
+    function setSpeed(v) {
+        v = Math.max(0, Math.min(MAX_SPEED, v));
+        document.getElementById('speed-val').textContent = Math.round(v);
+        const pct = 5 + (v / MAX_SPEED) * 85;
+        document.getElementById('speed-line').style.bottom = pct + '%';
+        document.getElementById('speed-fill').style.height = pct + '%';
+    }
+    let currentSpeed = 53;
+    setInterval(() => { currentSpeed = Math.max(20, Math.min(75, currentSpeed + (Math.random() - .5) * 3)); setSpeed(currentSpeed); }, 1000);
+    setSpeed(currentSpeed);
+
+    // --- BATTERY — barres verticales rouge vif, hauteur variable ---
+    // On crée N_MAX barres, chacune à hauteur pleine mais visible ou cachée selon le niveau
+    const N_MAX_BARS = 12; // nombre max de barres
+    const barsContainer = document.getElementById('battery-bars');
+    const barEls = [];
+    for (let i = 0; i < N_MAX_BARS; i++) {
+        const bar = document.createElement('div');
+        bar.style.cssText = 'flex:1;height:100%;background:#FF2200;transition:opacity 0.4s;';
+        barsContainer.appendChild(bar);
+        barEls.push(bar);
+    }
+
+    function updateAutonomy(pct) {
+        // Nombre de barres actives (proportionnel au pourcentage)
+        const activeBars = Math.round(pct / 100 * N_MAX_BARS);
+        barEls.forEach((b, i) => {
+            // Les barres actives : rouge vif pleine hauteur
+            // Les inactives : quasi invisible (fond très sombre)
+            b.style.background = i < activeBars ? '#FF2200' : 'rgba(255,34,0,0.08)';
+        });
+        document.getElementById('fuel-percent').textContent = `${Math.round(pct)}%`;
+        document.getElementById('battery-km').textContent = Math.round(pct);
+    }
+    let currentFuel = 48.0; updateAutonomy(currentFuel);
+    setInterval(() => { currentFuel = Math.max(0, currentFuel - .01); updateAutonomy(currentFuel); }, 5000);
+
+    // --- DRONE SPIN (JS rAF, rotation de l'anneau réticule) ---
+    let spinAngle = [0, 0, 0, 0];
+    const spinSpeeds = [1.4, -1.1, 1.6, -1.3]; // degrés/frame, alterner sens
+    const spinEls = [
+        document.getElementById('d1-spin'),
+        document.getElementById('d2-spin'),
+        document.getElementById('d3-spin'),
+        document.getElementById('d4-spin'),
+    ];
+
+    // --- DRONE SYSTEM ---
+    const svgMap = document.getElementById('map-svg');
+    const placementOverlay = document.getElementById('placement-overlay');
+    const placingDroneIdSpan = document.getElementById('placing-drone-id');
+    const rallyConfirm = document.getElementById('rally-confirm');
+    const VICTIM_X=620, VICTIM_Y=170;
+    const RALLY_OFFSETS=[{dx:-35,dy:-35},{dx:35,dy:-35},{dx:35,dy:35},{dx:-35,dy:35}];
+    let placingDrone=null, globalTime=0;
+
+    const uavSystem=[
+        {id:1,x:240,y:130,tx:240,ty:130,el:document.getElementById('drone-1'),ghost:document.getElementById('ghost-d1'),path:document.getElementById('path-d1')},
+        {id:2,x:580,y:80, tx:580,ty:80, el:document.getElementById('drone-2'),ghost:document.getElementById('ghost-d2'),path:document.getElementById('path-d2')},
+        {id:3,x:750,y:200,tx:750,ty:200,el:document.getElementById('drone-3'),ghost:document.getElementById('ghost-d3'),path:document.getElementById('path-d3')},
+        {id:4,x:550,y:260,tx:550,ty:260,el:document.getElementById('drone-4'),ghost:document.getElementById('ghost-d4'),path:document.getElementById('path-d4')}
+    ];
+
+    function getSVGCoords(e) {
+        const CTM=svgMap.getScreenCTM();
+        return {x:(e.clientX-CTM.e)/CTM.a,y:(e.clientY-CTM.f)/CTM.d};
+    }
+    function assignTarget(d,tx,ty) {
+        d.tx=tx; d.ty=ty;
+        d.ghost.setAttribute('transform',`translate(${tx},${ty})`); d.ghost.style.display='block';
+        d.path.setAttribute('x1',d.x); d.path.setAttribute('y1',d.y);
+        d.path.setAttribute('x2',tx);  d.path.setAttribute('y2',ty);
+        d.path.style.display='block';
+    }
+
+    document.getElementById('victim-marker').addEventListener('click',(e)=>{
+        e.stopPropagation();
+        if(placingDrone) return;
+        rallyConfirm.style.display='flex';
+    });
+    document.getElementById('rally-yes').addEventListener('click',(e)=>{
+        e.stopPropagation();
+        rallyConfirm.style.display='none';
+        uavSystem.forEach((d,i)=>assignTarget(d,VICTIM_X+RALLY_OFFSETS[i].dx,VICTIM_Y+RALLY_OFFSETS[i].dy));
+    });
+    document.getElementById('rally-no').addEventListener('click',(e)=>{ e.stopPropagation(); rallyConfirm.style.display='none'; });
+
+    uavSystem.forEach(drone=>{
+        drone.el.addEventListener('click',(e)=>{
+            e.stopPropagation();
+            rallyConfirm.style.display='none';
+            placingDrone=drone;
+            placingDroneIdSpan.textContent='D'+drone.id;
+            placementOverlay.style.display='block';
+        });
+    });
+    svgMap.addEventListener('click',(e)=>{
+        if(placingDrone){
+            const pos=getSVGCoords(e);
+            assignTarget(placingDrone,pos.x,pos.y);
+            placingDrone=null;
+            placementOverlay.style.display='none';
+        }
+    });
+
+    function dynamicEngine() {
+        globalTime+=0.05;
+
+        // Rotation réticules
+        for (let i = 0; i < 4; i++) {
+            spinAngle[i] += spinSpeeds[i];
+            spinEls[i].setAttribute('transform', `rotate(${spinAngle[i]})`);
+        }
+
+        // Déplacement drones
+        uavSystem.forEach(d=>{
+            const dx=d.tx-d.x, dy=d.ty-d.y, dist=Math.hypot(dx,dy);
+            if(dist>1.5) {
+                d.x+=(dx/dist)*1.8; d.y+=(dy/dist)*1.8;
+                d.path.setAttribute('x1',d.x); d.path.setAttribute('y1',d.y);
+                d.el.setAttribute('transform',`translate(${d.x},${d.y})`);
+            } else {
+                d.x=d.tx; d.y=d.ty;
+                d.path.style.display='none'; d.ghost.style.display='none';
+                d.el.setAttribute('transform',`translate(${d.x},${d.y+Math.sin(globalTime+d.id*2)*1.2})`);
+            }
+        });
+
+        document.getElementById('map-cursor').setAttribute('transform',`translate(475,360) rotate(${Math.sin(globalTime*.4)*1.2})`);
+        requestAnimationFrame(dynamicEngine);
+    }
+    requestAnimationFrame(dynamicEngine);
+
+    // --- LEAFLET MAP ---
+    const dashMap = L.map('dashboard-leaflet-map', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, keyboard: false, attributionControl: false })
+        .setView([43.2140, 5.4330], 15);
+    const DASH_TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    const DASH_TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    let dashTileLayer = L.tileLayer(DASH_TILE_DARK, { subdomains: 'abcd', maxZoom: 19 }).addTo(dashMap);
+    function updateDashTile() {
+        const isLight = document.body.classList.contains('light-mode');
+        dashTileLayer.remove();
+        dashTileLayer = L.tileLayer(isLight ? DASH_TILE_LIGHT : DASH_TILE_DARK, { subdomains: 'abcd', maxZoom: 19 }).addTo(dashMap);
+    }
+</script>
+</body>
+</html>

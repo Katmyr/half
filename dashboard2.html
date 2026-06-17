@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Tactique — HALF</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <symbol id="ico-siren" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </symbol>
+        <symbol id="ico-gyro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <line x1="12" y1="2"  x2="12" y2="5"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+            <line x1="4.22" y1="4.22"  x2="6.34" y2="6.34"/>
+            <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
+            <line x1="2"  y1="12" x2="5"  y2="12"/>
+            <line x1="19" y1="12" x2="22" y2="12"/>
+            <line x1="4.22"  y1="19.78" x2="6.34"  y2="17.66"/>
+            <line x1="17.66" y1="6.34"   x2="19.78" y2="4.22"/>
+        </symbol>
+        <symbol id="ico-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8"  y1="23" x2="16" y2="23"/>
+        </symbol>
+    </svg>
+
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --panel-bg: #151515;
+            --text-main: #ffffff;
+            --text-muted: #6b6b6b;
+            --accent-red: #ff3a20;
+            --alert-yellow: #ffcc00;
+            --border-color: #2a2a2a;
+            --map-bg: #0b0c0e;
+            --tactical-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='rgba(255,58,32,0.2)' stroke='rgba(255,58,32,0.8)' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='2' fill='rgba(255,58,32,1)'/%3E%3C/svg%3E") 16 16, crosshair;
+
+            --toggle-off-border: rgba(255,255,255,0.18);
+            --toggle-off-bg:     rgba(0,0,0,0.75);
+            --toggle-off-color:  rgba(255,255,255,0.75);
+            --cam-title-color:   #ffffff;
+            --alt-label-color:   #cccccc;
+            --alt-value-color:   #ffffff;
+            --status-color:      #cccccc;
+            --hud-stroke:        rgba(255,255,255,0.25);
+            --voice-log-bg:      rgba(0,0,0,0.82);
+            --voice-log-border:  rgba(255,255,255,0.12);
+            --voice-log-text:    rgba(255,255,255,0.75);
+        }
+
+        body.light-mode {
+            --bg-color:   #F0EDE8;
+            --panel-bg:   #ffffff;
+            --text-main:  #151515;
+            --text-muted: #7a756e;
+            --accent-red: #e62205;
+            --alert-yellow: #b37400;
+            --border-color: #c5c1ba;
+            --map-bg:     #e1ded7;
+            --toggle-off-border: rgba(0,0,0,0.18);
+            --toggle-off-bg:     rgba(255,255,255,0.55);
+            --toggle-off-color:  rgba(0,0,0,0.75);
+            --cam-title-color:   #1a1a1a;
+            --alt-label-color:   #5a5a5a;
+            --alt-value-color:   #1a1a1a;
+            --status-color:      #5a5a5a;
+            --hud-stroke:        rgba(0,0,0,0.18);
+            --voice-log-bg:      rgba(240,237,232,0.92);
+            --voice-log-border:  rgba(0,0,0,0.12);
+            --voice-log-text:    rgba(0,0,0,0.7);
+        }
+
+        * { box-sizing: border-box; cursor: var(--tactical-cursor) !important; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Barlow Semi Condensed', sans-serif;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .theme-toggle-container {
+            width: 950px;
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 15px;
+        }
+
+        #theme-toggle-btn {
+            background: var(--panel-bg);
+            border: 1.5px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 20px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        #theme-toggle-btn:hover { border-color: var(--accent-red); color: var(--accent-red); }
+
+        /* ── CONTENEUR PRINCIPAL ── */
+        .dashboard-container {
+            position: relative;
+            width: 950px;
+            height: 800px;
+        }
+
+        /* ── GRILLE 4 QUADRANTS ── */
+        #grid-view {
+            display: grid;
+            grid-template-columns: 470px 470px;
+            grid-template-rows: 395px 395px;
+            gap: 10px;
+            width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0;
+        }
+
+        .quadrant { position: relative; width: 100%; height: 100%; }
+        .quadrant:hover .cam-border { stroke: var(--accent-red); stroke-width: 2.5px; }
+
+        #full-view {
+            display: none;
+            width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0;
+        }
+
+        .svg-layer {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+        }
+
+        .cam-bg     { fill: var(--map-bg); transition: fill 0.3s ease; }
+        .cam-border { fill: none; stroke: var(--border-color); stroke-width: 1.5px; transition: stroke 0.3s ease; }
+        .corner-marker { fill: none; stroke: var(--hud-stroke); stroke-width: 1.5px; }
+        .hud-line      { fill: none; stroke: var(--hud-stroke); stroke-width: 1.5px; }
+
+        .ui-overlay {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            z-index: 4;
+            padding: 18px;
+        }
+
+        .q-tl .cam-header { padding-left: 100px; }
+        .q-tr .cam-header { padding-right: 100px; }
+        .q-bl .cam-footer { padding-left: 100px; }
+        .q-br .cam-footer { padding-right: 100px; }
+
+        .full-overlay     { padding: 30px 110px 30px 110px; }
+
+        /* HEADER */
+        .cam-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .cam-title {
+            color: var(--cam-title-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            letter-spacing: 1px;
+            display: flex; align-items: center; gap: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .rec-dot {
+            width: 10px; height: 10px; background-color: var(--accent-red);
+            border-radius: 50%; display: inline-block; animation: recBlink 1.5s infinite;
+            flex-shrink: 0;
+        }
+        @keyframes recBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+        /* FOOTER */
+        .cam-footer { display: flex; flex-direction: column; gap: 8px; margin-bottom: 2em; }
+        .q-tl .cam-footer, .q-tr .cam-footer { margin-bottom: 0; }
+
+        .footer-alt {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            color: var(--alt-label-color);
+        }
+        .alt-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--alt-value-color);
+            min-width: 52px;
+            display: inline-block;
+        }
+
+        .footer-toggles { display: flex; gap: 8px; pointer-events: auto; }
+
+        .toggle-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 12px;
+            min-height: 44px; min-width: 90px;
+            border-radius: 5px;
+            border: 1.5px solid var(--toggle-off-border);
+            background: var(--toggle-off-bg);
+            backdrop-filter: blur(6px);
+            font-family: 'Barlow Semi Condensed', sans-serif;
+            font-weight: 700; font-size: 12px; letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--toggle-off-color);
+            transition: all 0.15s ease;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .toggle-btn svg { width: 16px; height: 16px; stroke: currentColor; opacity: 0.5; flex-shrink: 0; transition: opacity 0.15s; }
+
+        .toggle-btn.siren.on { border-color: var(--alert-yellow); color: var(--alert-yellow); background: rgba(255,204,0,0.12); animation: sirenPulse 0.9s infinite; }
+        .toggle-btn.siren.on svg { opacity: 1; }
+        .toggle-btn.gyro.on  { border-color: var(--accent-red);   color: var(--accent-red);   background: rgba(255,58,32,0.12);  animation: gyroPulse  0.6s infinite; }
+        .toggle-btn.gyro.on svg  { opacity: 1; }
+
+        @keyframes sirenPulse { 0%,100%{box-shadow:0 0 10px rgba(255,204,0,0.25)} 50%{box-shadow:0 0 18px rgba(255,204,0,0.55)} }
+        @keyframes gyroPulse  { 0%,100%{box-shadow:0 0 10px rgba(255,58,32,0.25)} 50%{box-shadow:0 0 18px rgba(255,58,32,0.6)}  }
+
+        .btn-back {
+            pointer-events: auto;
+            background: rgba(255,58,32,0.15);
+            border: 1px solid var(--accent-red);
+            color: var(--accent-red);
+            padding: 12px 20px; min-height: 48px;
+            font-family: 'Barlow Semi Condensed', sans-serif;
+            font-weight: 700; font-size: 14px; letter-spacing: 2px;
+            border-radius: 4px; outline: none;
+            backdrop-filter: blur(4px);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .btn-back:hover { background: var(--accent-red); color: #0a0a0a; }
+
+        .full-footer-row { display: flex; justify-content: space-between; align-items: flex-end; }
+
+        .full-alt-block {
+            font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 1px;
+            color: var(--alt-label-color); display: flex; flex-direction: column; gap: 4px;
+        }
+        .full-alt-number { font-size: 28px; font-weight: 700; color: var(--alt-value-color); letter-spacing: -1px; line-height: 1; }
+
+        .full-toggles { display: flex; gap: 10px; pointer-events: auto; }
+
+        .full-toggle-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 20px; min-height: 54px; min-width: 140px;
+            border-radius: 6px;
+            border: 1.5px solid var(--toggle-off-border);
+            background: var(--toggle-off-bg);
+            backdrop-filter: blur(6px);
+            font-family: 'Barlow Semi Condensed', sans-serif;
+            font-weight: 700; font-size: 14px; letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--toggle-off-color);
+            transition: all 0.15s ease; outline: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .full-toggle-btn svg { width: 20px; height: 20px; stroke: currentColor; opacity: 0.5; flex-shrink: 0; transition: opacity 0.15s; }
+        .full-toggle-btn.siren.on { border-color: var(--alert-yellow); color: var(--alert-yellow); background: rgba(255,204,0,0.12); animation: sirenPulse 0.9s infinite; }
+        .full-toggle-btn.siren.on svg { opacity: 1; }
+        .full-toggle-btn.gyro.on  { border-color: var(--accent-red);   color: var(--accent-red);   background: rgba(255,58,32,0.12);  animation: gyroPulse  0.6s infinite; }
+        .full-toggle-btn.gyro.on svg  { opacity: 1; }
+
+        .full-status {
+            font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 1px;
+            color: var(--status-color); text-align: right; align-self: flex-end;
+        }
+
+        /* ══════════════════════════════════════════
+           BOUTON VOCAL — centré sur le dashboard
+        ══════════════════════════════════════════ */
+        #voice-hub {
+            position: absolute;
+            /* Centre exact de la grille */
+            top: 52%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        #voice-btn {
+            pointer-events: auto;
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            border: 2px solid var(--toggle-off-border);
+            background: var(--toggle-off-bg);
+            backdrop-filter: blur(10px);
+            color: var(--toggle-off-color);
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            position: relative;
+        }
+        #voice-btn svg { width: 34px; height: 34px; stroke: currentColor; transition: all 0.2s; }
+
+        /* Anneau de pulsation quand actif */
+        #voice-btn::before {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-red);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        #voice-btn.listening {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            background: rgba(255,58,32,0.15);
+            animation: voicePulse 1s infinite;
+        }
+        #voice-btn.listening::before { opacity: 1; animation: ringPulse 1s infinite; }
+        #voice-btn.listening svg { opacity: 1; }
+
+        @keyframes voicePulse {
+            0%,100% { box-shadow: 0 0 0   6px rgba(255,58,32,0.0); }
+            50%      { box-shadow: 0 0 0  14px rgba(255,58,32,0.2); }
+        }
+        @keyframes ringPulse {
+            0%,100% { transform: scale(1);   opacity: 0.8; }
+            50%      { transform: scale(1.15); opacity: 0.3; }
+        }
+
+        #voice-status {
+            pointer-events: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--alt-label-color);
+            text-align: center;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            background: var(--voice-log-bg);
+            border: 1px solid var(--voice-log-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            backdrop-filter: blur(8px);
+        }
+        #voice-status.visible { opacity: 1; }
+
+        #voice-log {
+            pointer-events: none;
+            position: absolute;
+            top: calc(50% + 46px);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            max-width: 320px;
+            width: max-content;
+            background: var(--voice-log-bg);
+            border: 1px solid var(--voice-log-border);
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            color: var(--voice-log-text);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-align: center;
+        }
+        #voice-log.visible { opacity: 1; }
+        #voice-log .log-label {
+            font-size: 9px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent-red);
+            display: block;
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="theme-toggle-container">
+    <button id="theme-toggle-btn">Mode Clair</button>
+</div>
+
+<div class="dashboard-container">
+
+    <!-- ── GRILLE ── -->
+    <div id="grid-view">
+
+        <!-- D1 -->
+        <div class="quadrant q-tl" onclick="openFull(1)">
+            <svg class="svg-layer" viewBox="0 0 470 395" width="100%" height="100%">
+                <defs>
+                    <pattern id="sl1" x="0" y="0" width="100%" height="4" patternUnits="userSpaceOnUse">
+                        <rect x="0" y="0" width="470" height="2" fill="transparent"/>
+                        <rect x="0" y="2" width="470" height="2" fill="rgba(0,0,0,0.28)"/>
+                    </pattern>
+                    <clipPath id="clip-uav1"><path d="M 110 1 L 460 1 Q 469 1 469 11 L 469 384 Q 469 394 459 394 L 10 394 Q 1 394 2 384 L 98 11 Q 100 1 110 1 Z"/></clipPath>
+                </defs>
+                <path d="M 110 1 L 460 1 Q 469 1 469 11 L 469 384 Q 469 394 459 394 L 10 394 Q 1 394 2 384 L 98 11 Q 100 1 110 1 Z" class="cam-bg"/>
+                <g clip-path="url(#clip-uav1)">
+                    <foreignObject x="0" y="0" width="470" height="395">
+                        <video id="video-uav1" src="videos/drone1.mp4" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+                    </foreignObject>
+                    <rect x="0" y="0" width="470" height="395" fill="url(#sl1)" opacity="0.45"/>
+                </g>
+                <path d="M 220 197.5 H 250 M 235 182.5 V 212.5" class="hud-line" stroke="var(--accent-red)"/>
+                <path d="M 135 25 H 125 V 35 M 435 25 H 445 V 35 M 435 370 H 445 V 360 M 35 370 H 25 V 360" class="corner-marker"/>
+                <path d="M 110 1 L 460 1 Q 469 1 469 11 L 469 384 Q 469 394 459 394 L 10 394 Q 1 394 2 384 L 98 11 Q 100 1 110 1 Z" class="cam-border"/>
+            </svg>
+            <div class="ui-overlay">
+                <div class="cam-header">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div class="cam-title"><span class="rec-dot"></span>D1</div>
+                        <div class="footer-alt"><span>ALT</span><span class="alt-value" id="alt-d1">—</span><span>m</span></div>
+                    </div>
+                    <div class="footer-toggles">
+                        <button class="toggle-btn siren off" id="siren-d1" onclick="toggleSignal(event,'siren','d1')"><svg><use href="#ico-siren"/></svg>SIREN</button>
+                        <button class="toggle-btn gyro off"  id="gyro-d1"  onclick="toggleSignal(event,'gyro','d1')"><svg><use href="#ico-gyro"/></svg>FLASHING LIGHTS</button>
+                    </div>
+                </div>
+                <div class="cam-footer">
+                </div>
+            </div>
+        </div>
+
+        <!-- D2 -->
+        <div class="quadrant q-tr" onclick="openFull(2)">
+            <svg class="svg-layer" viewBox="0 0 470 395" width="100%" height="100%">
+                <defs>
+                    <pattern id="sl2" x="0" y="0" width="100%" height="4" patternUnits="userSpaceOnUse">
+                        <rect x="0" y="0" width="470" height="2" fill="transparent"/>
+                        <rect x="0" y="2" width="470" height="2" fill="rgba(0,0,0,0.28)"/>
+                    </pattern>
+                    <clipPath id="clip-uav2"><path d="M 10 1 L 360 1 Q 370 1 372 11 L 468 384 Q 469 394 459 394 L 10 394 Q 1 394 1 384 L 1 11 Q 1 1 10 1 Z"/></clipPath>
+                </defs>
+                <path d="M 10 1 L 360 1 Q 370 1 372 11 L 468 384 Q 469 394 459 394 L 10 394 Q 1 394 1 384 L 1 11 Q 1 1 10 1 Z" class="cam-bg"/>
+                <g clip-path="url(#clip-uav2)">
+                    <foreignObject x="0" y="0" width="470" height="395">
+                        <video id="video-uav2" src="videos/drone2.mp4" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+                    </foreignObject>
+                    <rect x="0" y="0" width="470" height="395" fill="url(#sl2)" opacity="0.45"/>
+                </g>
+                <path d="M 220 197.5 H 250 M 235 182.5 V 212.5" class="hud-line"/>
+                <path d="M 35 25 H 25 V 35 M 325 25 H 335 V 35 M 425 370 H 435 V 360 M 35 370 H 25 V 360" class="corner-marker"/>
+                <path d="M 10 1 L 360 1 Q 370 1 372 11 L 468 384 Q 469 394 459 394 L 10 394 Q 1 394 1 384 L 1 11 Q 1 1 10 1 Z" class="cam-border"/>
+            </svg>
+            <div class="ui-overlay">
+                <div class="cam-header">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div class="cam-title"><span class="rec-dot"></span>D2</div>
+                        <div class="footer-alt"><span>ALT</span><span class="alt-value" id="alt-d2">—</span><span>m</span></div>
+                    </div>
+                    <div class="footer-toggles">
+                        <button class="toggle-btn siren off" id="siren-d2" onclick="toggleSignal(event,'siren','d2')"><svg><use href="#ico-siren"/></svg>SIREN</button>
+                        <button class="toggle-btn gyro off"  id="gyro-d2"  onclick="toggleSignal(event,'gyro','d2')"><svg><use href="#ico-gyro"/></svg>FLASHING LIGHTS</button>
+                    </div>
+                </div>
+                <div class="cam-footer">
+                </div>
+            </div>
+        </div>
+
+        <!-- D3 -->
+        <div class="quadrant q-bl" onclick="openFull(3)">
+            <svg class="svg-layer" viewBox="0 0 470 395" width="100%" height="100%">
+                <defs>
+                    <pattern id="sl3" x="0" y="0" width="100%" height="4" patternUnits="userSpaceOnUse">
+                        <rect x="0" y="0" width="470" height="2" fill="transparent"/>
+                        <rect x="0" y="2" width="470" height="2" fill="rgba(0,0,0,0.28)"/>
+                    </pattern>
+                    <clipPath id="clip-uav3"><path d="M 10 1 L 460 1 Q 469 1 469 11 L 469 384 Q 469 394 459 394 L 110 394 Q 100 394 98 384 L 2 11 Q 0 1 10 1 Z"/></clipPath>
+                </defs>
+                <path d="M 10 1 L 460 1 Q 469 1 469 11 L 469 384 Q 469 394 459 394 L 110 394 Q 100 394 98 384 L 2 11 Q 0 1 10 1 Z" class="cam-bg"/>
+                <g clip-path="url(#clip-uav3)">
+                    <foreignObject x="0" y="0" width="470" height="395">
+                        <video id="video-uav3" src="videos/drone3.mp4" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+                    </foreignObject>
+                    <rect x="0" y="0" width="470" height="395" fill="url(#sl3)" opacity="0.45"/>
+                </g>
+                <path d="M 220 197.5 H 250 M 235 182.5 V 212.5" class="hud-line"/>
+                <path d="M 35 25 H 25 V 35 M 435 25 H 445 V 35 M 435 370 H 445 V 360 M 135 370 H 125 V 360" class="corner-marker"/>
+                <path d="M 10 1 L 460 1 Q 469 1 469 11 L 469 384 Q 469 394 459 394 L 110 394 Q 100 394 98 384 L 2 11 Q 0 1 10 1 Z" class="cam-border"/>
+            </svg>
+            <div class="ui-overlay">
+                <div class="cam-header"><div class="cam-title"><span class="rec-dot"></span>D3</div></div>
+                <div class="cam-footer">
+                    <div class="footer-alt"><span>ALT</span><span class="alt-value" id="alt-d3">—</span><span>m</span></div>
+                    <div class="footer-toggles">
+                        <button class="toggle-btn siren off" id="siren-d3" onclick="toggleSignal(event,'siren','d3')"><svg><use href="#ico-siren"/></svg>SIREN</button>
+                        <button class="toggle-btn gyro off"  id="gyro-d3"  onclick="toggleSignal(event,'gyro','d3')"><svg><use href="#ico-gyro"/></svg>FLASHING LIGHTS</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- D4 -->
+        <div class="quadrant q-br" onclick="openFull(4)">
+            <svg class="svg-layer" viewBox="0 0 470 395" width="100%" height="100%">
+                <defs>
+                    <pattern id="sl4" x="0" y="0" width="100%" height="4" patternUnits="userSpaceOnUse">
+                        <rect x="0" y="0" width="470" height="2" fill="transparent"/>
+                        <rect x="0" y="2" width="470" height="2" fill="rgba(0,0,0,0.28)"/>
+                    </pattern>
+                    <clipPath id="clip-uav4"><path d="M 10 1 L 460 1 Q 469 1 469 11 L 372 384 Q 370 394 360 394 L 10 394 Q 1 394 1 384 L 1 11 Q 1 1 10 1 Z"/></clipPath>
+                </defs>
+                <path d="M 10 1 L 460 1 Q 469 1 469 11 L 372 384 Q 370 394 360 394 L 10 394 Q 1 394 1 384 L 1 11 Q 1 1 10 1 Z" class="cam-bg"/>
+                <g clip-path="url(#clip-uav4)">
+                    <foreignObject x="0" y="0" width="470" height="395">
+                        <video id="video-uav4" src="videos/drone4.mp4" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+                    </foreignObject>
+                    <rect x="0" y="0" width="470" height="395" fill="url(#sl4)" opacity="0.45"/>
+                </g>
+                <path d="M 220 197.5 H 250 M 235 182.5 V 212.5" class="hud-line"/>
+                <path d="M 35 25 H 25 V 35 M 425 25 H 435 V 35 M 325 370 H 335 V 360 M 35 370 H 25 V 360" class="corner-marker"/>
+                <path d="M 10 1 L 460 1 Q 469 1 469 11 L 372 384 Q 370 394 360 394 L 10 394 Q 1 394 1 384 L 1 11 Q 1 1 10 1 Z" class="cam-border"/>
+            </svg>
+            <div class="ui-overlay">
+                <div class="cam-header" style="margin-left: 2em;"><div class="cam-title"><span class="rec-dot"></span>D4</div></div>
+                <div class="cam-footer">
+                    <div class="footer-alt"><span>ALT</span><span class="alt-value" id="alt-d4">—</span><span>m</span></div>
+                    <div class="footer-toggles">
+                        <button class="toggle-btn siren off" id="siren-d4" onclick="toggleSignal(event,'siren','d4')"><svg><use href="#ico-siren"/></svg>SIREN</button>
+                        <button class="toggle-btn gyro off"  id="gyro-d4"  onclick="toggleSignal(event,'gyro','d4')"><svg><use href="#ico-gyro"/></svg>FLASHING LIGHTS</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── VUE PLEIN ÉCRAN ── -->
+    <div id="full-view">
+        <svg class="svg-layer" viewBox="0 0 950 800" width="100%" height="100%">
+            <defs>
+                <pattern id="sl-full" x="0" y="0" width="100%" height="4" patternUnits="userSpaceOnUse">
+                    <rect x="0" y="0" width="950" height="2" fill="transparent"/>
+                    <rect x="0" y="2" width="950" height="2" fill="rgba(0,0,0,0.28)"/>
+                </pattern>
+                <clipPath id="clip-master">
+                    <path d="M 110 1 L 840 1 Q 850 1 852 11 L 948 390 Q 950 400 948 410 L 852 789 Q 850 799 840 799 L 110 799 Q 100 799 98 789 L 2 410 Q 0 400 2 390 L 98 11 Q 100 1 110 1 Z"/>
+                </clipPath>
+            </defs>
+            <path d="M 110 1 L 840 1 Q 850 1 852 11 L 948 390 Q 950 400 948 410 L 852 789 Q 850 799 840 799 L 110 799 Q 100 799 98 789 L 2 410 Q 0 400 2 390 L 98 11 Q 100 1 110 1 Z" class="cam-bg"/>
+            <g clip-path="url(#clip-master)">
+                <foreignObject x="0" y="0" width="950" height="800">
+                    <video id="video-master" src="" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+                </foreignObject>
+                <rect x="0" y="0" width="950" height="800" fill="url(#sl-full)" opacity="0.45"/>
+            </g>
+            <path d="M 455 400 H 495 M 475 380 V 420" stroke-width="2" fill="none" stroke="rgba(255,255,255,0.4)"/>
+            <g class="corner-marker" stroke-width="2">
+                <path d="M 145 35 H 125 V 55"/><path d="M 805 35 H 825 V 55"/>
+                <path d="M 805 765 H 825 V 745"/><path d="M 145 765 H 125 V 745"/>
+            </g>
+            <path d="M 110 1 L 840 1 Q 850 1 852 11 L 948 390 Q 950 400 948 410 L 852 789 Q 850 799 840 799 L 110 799 Q 100 799 98 789 L 2 410 Q 0 400 2 390 L 98 11 Q 100 1 110 1 Z" class="cam-border" stroke-width="2.5px"/>
+        </svg>
+
+        <div class="ui-overlay full-overlay">
+            <div class="cam-header">
+                <div class="cam-title" style="font-size:20px" id="full-title-container">
+                    <span class="rec-dot" style="width:14px;height:14px"></span>
+                    <span id="full-label">D1</span>
+                </div>
+                <button class="btn-back" onclick="closeFull()">[×] GRID</button>
+            </div>
+            <div class="full-footer-row">
+                <div class="full-alt-block">
+                    <span>ALTITUDE</span>
+                    <span class="full-alt-number" id="full-alt">—</span>
+                    <span>mètres</span>
+                </div>
+                <div class="full-toggles">
+                    <button class="full-toggle-btn siren off" id="full-siren" onclick="toggleFullSignal('siren')"><svg><use href="#ico-siren"/></svg>SIREN</button>
+                    <button class="full-toggle-btn gyro off"  id="full-gyro"  onclick="toggleFullSignal('gyro')"><svg><use href="#ico-gyro"/></svg>FLASHING LIGHTS</button>
+                </div>
+                <div class="full-status">FEED STATUS<br><strong style="color:var(--accent-red)">LINK SECURE</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ BOUTON VOCAL — flotte au-dessus de tout ══ -->
+    <div id="voice-hub">
+        <button id="voice-btn" onclick="toggleVoice()">
+            <svg><use href="#ico-mic"/></svg>
+        </button>
+        <div id="voice-status">VOCAL — D1·D2·D3·D4</div>
+    </div>
+
+    <!-- Log dernière instruction, juste sous le bouton -->
+    <div id="voice-log">
+        <span class="log-label">INSTRUCTION REÇUE</span>
+        <span id="voice-transcript"></span>
+    </div>
+
+</div>
+
+<script>
+    /* ── THÈME ── */
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    themeBtn.addEventListener('click', () => {
+        const light = document.body.classList.toggle('light-mode');
+        themeBtn.textContent = light ? 'Mode Sombre' : 'Mode Clair';
+    });
+
+    /* ── ÉTAT DRONES ── */
+    const droneState = {
+        d1: { siren: false, gyro: false, alt: 320 },
+        d2: { siren: false, gyro: false, alt: 450 },
+        d3: { siren: false, gyro: false, alt: 185 },
+        d4: { siren: false, gyro: false, alt: 610 },
+    };
+    const droneProfiles = {
+        1: { id: 'd1', label: 'D1' }, 2: { id: 'd2', label: 'D2' },
+        3: { id: 'd3', label: 'D3' }, 4: { id: 'd4', label: 'D4' },
+    };
+    let activeDroneNum = null;
+
+    /* ── ALTITUDE ── */
+    const altDrift = { d1: 0, d2: 0, d3: 0, d4: 0 };
+    function updateAltitudes() {
+        ['d1','d2','d3','d4'].forEach(id => {
+            altDrift[id] = Math.max(-30, Math.min(30, altDrift[id] + (Math.random() - 0.5) * 8));
+            const v = Math.round(droneState[id].alt + altDrift[id]);
+            document.getElementById(`alt-${id}`).textContent = v;
+            if (activeDroneNum && droneProfiles[activeDroneNum].id === id)
+                document.getElementById('full-alt').textContent = v;
+        });
+    }
+    setInterval(updateAltitudes, 1200);
+    updateAltitudes();
+
+    /* ── TOGGLES ── */
+    function toggleSignal(event, type, droneId) {
+        event.stopPropagation();
+        droneState[droneId][type] = !droneState[droneId][type];
+        const btn = document.getElementById(`${type}-${droneId}`);
+        btn.classList.toggle('on',  droneState[droneId][type]);
+        btn.classList.toggle('off', !droneState[droneId][type]);
+        if (activeDroneNum && droneProfiles[activeDroneNum].id === droneId) syncFullToggles(droneId);
+    }
+    function toggleFullSignal(type) {
+        if (!activeDroneNum) return;
+        const droneId = droneProfiles[activeDroneNum].id;
+        droneState[droneId][type] = !droneState[droneId][type];
+        document.getElementById(`${type}-${droneId}`).classList.toggle('on',  droneState[droneId][type]);
+        document.getElementById(`${type}-${droneId}`).classList.toggle('off', !droneState[droneId][type]);
+        document.getElementById(`full-${type}`).classList.toggle('on',  droneState[droneId][type]);
+        document.getElementById(`full-${type}`).classList.toggle('off', !droneState[droneId][type]);
+    }
+    function syncFullToggles(droneId) {
+        ['siren','gyro'].forEach(type => {
+            const on = droneState[droneId][type];
+            document.getElementById(`full-${type}`).classList.toggle('on',  on);
+            document.getElementById(`full-${type}`).classList.toggle('off', !on);
+        });
+    }
+
+    /* ── VUE PLEIN ÉCRAN ── */
+    const gridView    = document.getElementById('grid-view');
+    const fullView    = document.getElementById('full-view');
+    const videoMaster = document.getElementById('video-master');
+
+    function openFull(uavNum) {
+        const profile = droneProfiles[uavNum];
+        activeDroneNum = uavNum;
+        const src = document.getElementById(`video-uav${uavNum}`);
+        videoMaster.src = src.src;
+        videoMaster.currentTime = src.currentTime;
+        videoMaster.play();
+        document.getElementById('full-label').textContent = profile.label;
+        syncFullToggles(profile.id);
+        document.getElementById('full-alt').textContent =
+            Math.round(droneState[profile.id].alt + altDrift[profile.id]);
+        gridView.style.display = 'none';
+        fullView.style.display = 'block';
+        document.getElementById('voice-hub').style.display = 'none';
+        document.getElementById('voice-log').style.display = 'none';
+    }
+    function closeFull() {
+        activeDroneNum = null;
+        videoMaster.pause(); videoMaster.src = '';
+        fullView.style.display = 'none';
+        gridView.style.display = 'grid';
+        document.getElementById('voice-hub').style.display = 'flex';
+        document.getElementById('voice-log').style.display = 'block';
+    }
+
+    /* ══════════════════════════════════════════════
+       RECONNAISSANCE VOCALE — Web Speech API
+    ══════════════════════════════════════════════ */
+    const voiceBtn        = document.getElementById('voice-btn');
+    const voiceStatus     = document.getElementById('voice-status');
+    const voiceLog        = document.getElementById('voice-log');
+    const voiceTranscript = document.getElementById('voice-transcript');
+
+    let recognition = null;
+    let listening   = false;
+    let logTimer    = null;
+
+    // Initialisation de la Web Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'fr-FR';
+        recognition.continuous = false;       // capture une phrase puis s'arrête
+        recognition.interimResults = true;    // résultats partiels en temps réel
+
+        recognition.onstart = () => {
+            listening = true;
+            voiceBtn.classList.add('listening');
+            voiceStatus.classList.add('visible');
+            voiceStatus.textContent = '● ÉCOUTE EN COURS…';
+        };
+
+        recognition.onresult = (e) => {
+            let interim = '';
+            let final   = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                const t = e.results[i][0].transcript;
+                if (e.results[i].isFinal) final += t;
+                else interim += t;
+            }
+            const shown = final || interim;
+            if (shown) showLog(shown, !!final);
+        };
+
+        recognition.onend = () => {
+            listening = false;
+            voiceBtn.classList.remove('listening');
+            voiceStatus.textContent = 'VOCAL — D1·D2·D3·D4';
+            voiceStatus.classList.remove('visible');
+        };
+
+        recognition.onerror = (e) => {
+            listening = false;
+            voiceBtn.classList.remove('listening');
+            voiceStatus.textContent = 'VOCAL — D1·D2·D3·D4';
+            voiceStatus.classList.remove('visible');
+            const msgs = {
+                'not-allowed': 'MICRO REFUSÉ',
+                'no-speech':   'AUCUNE PAROLE DÉTECTÉE',
+                'network':     'ERREUR RÉSEAU',
+            };
+            showLog(msgs[e.error] || `ERREUR: ${e.error}`, true);
+        };
+    }
+
+    function showLog(text, isFinal) {
+        voiceTranscript.textContent = text.toUpperCase();
+        voiceLog.classList.add('visible');
+        if (isFinal) {
+            clearTimeout(logTimer);
+            logTimer = setTimeout(() => voiceLog.classList.remove('visible'), 4000);
+        }
+    }
+
+    function toggleVoice() {
+        if (!SpeechRecognition) {
+            showLog('API VOCALE NON SUPPORTÉE PAR CE NAVIGATEUR', true);
+            return;
+        }
+        if (listening) {
+            recognition.stop();
+        } else {
+            voiceLog.classList.remove('visible');
+            recognition.start();
+        }
+    }
+</script>
+</body>
+</html>
